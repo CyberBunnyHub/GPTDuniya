@@ -12,6 +12,7 @@ DB_CHANNEL = -1002511163521
 IMAGE_URLS = [
     "https://i.ibb.co/dJw7sbCh/5a5b38ed84fb.jpg"
 ]
+
 CAPTIONS = [
     "Hey there! I'm your friendly Auto Filter bot.",
     "Hello! Ready to search your favorite files.",
