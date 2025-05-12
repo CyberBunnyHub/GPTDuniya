@@ -1,14 +1,8 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pymongo import MongoClient
-import random
+import random, base64
 from config import BOT_TOKEN, API_ID, API_HASH, MONGO_URI, DB_CHANNEL, IMAGE_URLS, CAPTIONS, UPDATE_CHANNEL, SUPPORT_GROUP
-import base64
-
-...
-
-encoded_id = base64.urlsafe_b64encode(doc["file_id"].encode()).decode()
-url = f"https://t.me/{(await client.get_me()).username}?start=file_{encoded_id}"
 
 app = Client("AutoFilterBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -18,22 +12,20 @@ files_col = db["files"]
 users_col = db["users"]
 groups_col = db["groups"]
 
-# START
+# Start Command
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
     args = message.command
 
-    # If a file ID is passed in /start
+    # If file ID is passed via /start=file_xxx
     if len(args) > 1 and args[1].startswith("file_"):
-        
-    try:
-        file_id = base64.urlsafe_b64decode(args[1][5:]).decode()
-        await message.reply_document(file_id)
-        return
-    except Exception as e:
-        await message.reply(f"Failed to fetch file: {e}")
+        try:
+            file_id = base64.urlsafe_b64decode(args[1][5:]).decode()
+            await message.reply_document(file_id)
+            return
+        except Exception as e:
+            await message.reply(f"Failed to fetch file: {e}")
 
-    # Normal start
     image = random.choice(IMAGE_URLS)
     caption = random.choice(CAPTIONS)
 
@@ -46,7 +38,7 @@ async def start_cmd(client, message: Message):
 
     await message.reply_photo(image, caption=caption, reply_markup=keyboard)
 
-# Save Files From Channel
+# Save Files From DB_CHANNEL
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & filters.document)
 async def save_to_db(client, message: Message):
     if not message.caption:
@@ -67,12 +59,16 @@ async def search_file(client, message: Message):
         await message.reply("No results found.")
         return
 
-    buttons = [
-        [InlineKeyboardButton(
-            doc["file_name"].title()[:30],
-            url=f"https://t.me/{(await client.get_me()).username}?start={doc['file_id']}"
-        )] for doc in results[:10]
-    ]
+    buttons = []
+    bot_username = (await client.get_me()).username
+    for doc in results[:10]:
+        encoded_id = base64.urlsafe_b64encode(doc["file_id"].encode()).decode()
+        buttons.append([
+            InlineKeyboardButton(
+                doc["file_name"].title()[:30],
+                url=f"https://t.me/{bot_username}?start=file_{encoded_id}"
+            )
+        ])
 
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
 
@@ -82,13 +78,12 @@ async def stats(client, message: Message):
     total_users = users_col.count_documents({})
     total_groups = groups_col.count_documents({})
     total_files = files_col.count_documents({})
-
+    
     text = (
         "**Bot Stats:**\n\n"
         f"**Users:** {total_users}\n"
         f"**Groups:** {total_groups}\n"
         f"**Total files:** {total_files}\n\n"
-        f"**Sample files:**\n{sample_text}"
     )
     await message.reply(text)
 
