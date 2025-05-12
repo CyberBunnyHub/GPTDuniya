@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # List of image URLs (currently one URL; add more if desired)
 IMAGE_URLS = [
-    "https://example.com/your_image.jpg"  # Replace with your actual image URL
+    "https://i.ibb.co/dJM3VxB4/44ded1a7fe4b.jpg" # Replace with your actual image URL
 ]
 
 # List of sample captions
@@ -64,7 +64,7 @@ def button_handler(update: Update, context: CallbackContext) -> None:
 def main() -> None:
     """Starts the bot."""
     # Replace 'YOUR_BOT_TOKEN_HERE' with your bot's token from BotFather
-    BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+    BOT_TOKEN = "7845318227:AAGfr0cikK92HY-DhIGMVTD3L0VeaKktUp8"
 
     updater = Updater(BOT_TOKEN, use_context=True)
     dispatcher = updater.dispatcher
