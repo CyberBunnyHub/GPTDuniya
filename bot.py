@@ -3,6 +3,12 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pymongo import MongoClient
 import random
 from config import BOT_TOKEN, API_ID, API_HASH, MONGO_URI, DB_CHANNEL, IMAGE_URLS, CAPTIONS, UPDATE_CHANNEL, SUPPORT_GROUP
+import base64
+
+...
+
+encoded_id = base64.urlsafe_b64encode(doc["file_id"].encode()).decode()
+url = f"https://t.me/{(await client.get_me()).username}?start=file_{encoded_id}"
 
 app = Client("AutoFilterBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -18,13 +24,13 @@ async def start_cmd(client, message: Message):
     args = message.command
 
     # If a file ID is passed in /start
-    if len(args) > 1:
-        file_id = args[1]
-        try:
-            await message.reply_document(file_id)
-        except Exception as e:
-            await message.reply(f"Error sending file: {e}")
+    if len(args) > 1 and args[1].startswith("file_"):
+    try:
+        file_id = base64.urlsafe_b64decode(args[1][5:]).decode()
+        await message.reply_document(file_id)
         return
+    except Exception as e:
+        await message.reply(f"Failed to fetch file: {e}")
 
     # Normal start
     image = random.choice(IMAGE_URLS)
@@ -51,7 +57,7 @@ async def save_to_db(client, message: Message):
     files_col.insert_one(data)
 
 # Search
-@app.on_message(filters.text & ~filters.command(["start", "help", "about", "stats"]))
+@app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)
 async def search_file(client, message: Message):
     query = message.text.strip().lower()
     results = list(files_col.find({"file_name": {"$regex": query, "$options": "i"}}))
@@ -75,10 +81,6 @@ async def stats(client, message: Message):
     total_users = users_col.count_documents({})
     total_groups = groups_col.count_documents({})
     total_files = files_col.count_documents({})
-    samples = files_col.find().limit(5)
-
-    sample_names = "\n".join([f"• {x['file_name']}" for x in samples])
-    sample_text = sample_names if sample_names else "No files yet."
 
     text = (
         "**Bot Stats:**\n\n"
