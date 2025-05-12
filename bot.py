@@ -29,12 +29,17 @@ async def start_cmd(client, message: Message):
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & filters.document)
 async def save_to_db(client, message: Message):
     if not message.caption:
+        print("Received a document without caption. Skipping.")
         return
-    db.insert_one({
-        "file_id": message.document.file_id,
-        "file_name": message.caption.lower()
-    })
 
+    try:
+        db.insert_one({
+            "file_id": message.document.file_id,
+            "file_name": message.caption.lower()
+        })
+        print(f"Saved: {message.caption.lower()}")
+    except Exception as e:
+        print(f"Error saving to DB: {e}")
 
 @app.on_message(filters.text & ~filters.command(["start"]) & ~filters.me)
 async def search_file(client, message: Message):
