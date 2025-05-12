@@ -1,5 +1,7 @@
 # config.py
 
+API_ID = 14853951
+API_HASH = "0a33bc287078d4dace12aaecc8e73545"
 MONGO_URI = "mongodb+srv://CyberBunny:Bunny2008@cyberbunny.5yyorwj.mongodb.net/?retryWrites=true&w=majority"
 DB_NAME = "CyberBunny"
 COLLECTION_NAME = "CBI"
