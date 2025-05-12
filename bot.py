@@ -58,5 +58,14 @@ async def send_file(client, callback_query):
     await callback_query.message.reply_document(file_id)
     await callback_query.answer()
 
+@app.on_message(filters.command("dump") & filters.user(2511163521))
+async def dump(client, message):
+    files = list(db.find())
+    if not files:
+        await message.reply("DB is empty.")
+    else:
+        reply_text = "\n".join([f"{x['file_name']}" for x in files[:5]])
+        await message.reply(f"Sample stored files:\n{reply_text}")
+
 print("Bot is starting...")
 app.run()
