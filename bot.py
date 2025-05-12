@@ -54,11 +54,13 @@ async def search_file(client, message: Message):
         await message.reply("No results found.")
         return
 
-    bot_username = (await client.get_me()).username
-buttons = [
-    [InlineKeyboardButton(doc["file_name"].title(), url=f"https://t.me/{bot_username}?start=file_{doc['file_id']}")]
-    for doc in results[:10]
-]
+    buttons = [
+        [InlineKeyboardButton(
+            doc["file_name"].title(),
+            url=f"https://t.me/{(await client.get_me()).username}?start={doc['file_id']}"
+        )]
+        for doc in results[:10]
+    ]
 
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
 
