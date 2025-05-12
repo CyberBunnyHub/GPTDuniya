@@ -10,9 +10,7 @@ DB_CHANNEL = -1002511163521
 
 # UI Elements
 IMAGE_URLS = [
-    "https://telegra.ph/file/00b5e7f5bcf7ccf0a67c4.jpg",
-    "https://telegra.ph/file/6883a29be71655fd43c8c.jpg",
-    "https://telegra.ph/file/84c66d3ad8e35cc4df973.jpg"
+    "https://i.ibb.co/dJw7sbCh/5a5b38ed84fb.jpg"
 ]
 CAPTIONS = [
     "Hey there! I'm your friendly Auto Filter bot.",
