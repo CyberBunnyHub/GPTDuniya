@@ -1,26 +1,20 @@
-# bot.py
-
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pymongo import MongoClient
-from config import *
-
 import random
+from config import BOT_TOKEN, API_ID, API_HASH, MONGO_URI, DB_CHANNEL, IMAGE_URLS, CAPTIONS, UPDATE_CHANNEL, SUPPORT_GROUP
 
-# Pyrogram Client
-from config import API_ID, API_HASH 
 app = Client("AutoFilterBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# MongoDB
 mongo = MongoClient(MONGO_URI)
-db = mongo[DB_NAME][COLLECTION_NAME]
+db = mongo["autofilter"]["files"]
 
-# /start command
-@app.on_message(filters.private & filters.command("start"))
+
+@app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
     image = random.choice(IMAGE_URLS)
     caption = random.choice(CAPTIONS)
-    
+
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
         [InlineKeyboardButton("Help", callback_data="help"),
@@ -28,20 +22,10 @@ async def start_cmd(client, message: Message):
         [InlineKeyboardButton("Update Channel", url=UPDATE_CHANNEL)],
         [InlineKeyboardButton("Support Group", url=SUPPORT_GROUP)]
     ])
-    
-    await message.reply_photo(photo=image, caption=caption, reply_markup=keyboard)
 
-# Button callbacks
-@app.on_callback_query()
-async def cb_handler(client, callback):
-    data = callback.data
-    if data == "help":
-        await callback.message.edit_caption("Send a movie name and I will try to find matching files.")
-    elif data == "about":
-        await callback.message.edit_caption("Auto Filter Bot v1.0 | Built with Pyrogram and MongoDB.")
-    await callback.answer()
+    await message.reply_photo(image, caption=caption, reply_markup=keyboard)
 
-# Store new files (only from DB Channel)
+
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & filters.document)
 async def save_to_db(client, message: Message):
     if not message.caption:
@@ -51,27 +35,25 @@ async def save_to_db(client, message: Message):
         "file_name": message.caption.lower()
     })
 
-# Search handler (private + group)
+
 @app.on_message(filters.text & ~filters.command(["start"]) & ~filters.me)
 async def search_file(client, message: Message):
     query = message.text.strip().lower()
-    results = list(db.find({"file_name": {"$regex": f"^{query}"}}))
+    results = list(db.find({"file_name": {"$regex": query, "$options": "i"}}))
 
     if not results:
         await message.reply("No results found.")
         return
 
     buttons = [
-        [InlineKeyboardButton(doc["file_name"], callback_data=f"get_{doc['file_id']}")]
+        [InlineKeyboardButton(doc["file_name"].title(), callback_data=f"get_{doc['file_id']}")]
         for doc in results[:10]
     ]
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
 
-# File callback
-@app.on_callback_query(filters.regex(r"get_"))
-async def send_file(client, callback):
-    file_id = callback.data.split("_", 1)[1]
-    await callback.message.reply_document(file_id)
-    await callback.answer()
 
-app.run()
+@app.on_callback_query(filters.regex(r"get_(.*)"))
+async def send_file(client, callback_query):
+    file_id = callback_query.data.split("_", 1)[1]
+    await callback_query.message.reply_document(file_id)
+    await callback_query.answer()
