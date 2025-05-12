@@ -68,7 +68,7 @@ async def send_file(client, callback_query):
         await callback_query.message.reply(f"Error: {e}")
         await callback_query.answer("Failed.", show_alert=True)
 
-@app.on_message(filters.command("dump") & filters.user(2511163521))
+@app.on_message(filters.command("dump") & filters.user("OWNER_ID"))
 async def dump(client, message):
     files = list(db.find())
     if not files:
@@ -77,6 +77,39 @@ async def dump(client, message):
         reply_text = "\n".join([f"{x['file_name']}" for x in files[:5]])
         await message.reply(f"Sample stored files:\n{reply_text}")
 
+users_col = mongo["autofilter"]["users"]
+groups_col = mongo["autofilter"]["groups"]
+
+@app.on_message(filters.private & filters.text)
+async def track_user(client, message: Message):
+    user_id = message.from_user.id
+    users_col.update_one({"_id": user_id}, {"$set": {"name": message.from_user.first_name}}, upsert=True)
+
+
+@app.on_message(filters.group & filters.text)
+async def track_group(client, message: Message):
+    chat_id = message.chat.id
+    groups_col.update_one({"_id": chat_id}, {"$set": {"title": message.chat.title}}, upsert=True)
+    
+@app.on_message(filters.command("stats"))
+async def stats(client, message: Message):
+    total_users = users_col.count_documents({})
+    total_groups = groups_col.count_documents({})
+    total_files = db.count_documents({})
+    samples = db.find().limit(5)
+
+    sample_names = "\n".join([f"• {x['file_name']}" for x in samples])
+    sample_text = sample_names if sample_names else "No files yet."
+
+    text = (
+        "**Bot Stats:**\n\n"
+        f"**Users:** {total_users}\n"
+        f"**Groups:** {total_groups}\n"
+        f"**Total files:** {total_files}\n\n"
+        f"**Sample files:**\n{sample_text}"
+    )
+
+    await message.reply(text)
 
 print("Bot is starting...")
 app.run()
