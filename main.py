@@ -28,7 +28,7 @@ async def start_command(client, message):
 # Admin-only filter adding
 @app.on_message(filters.command("addfilter") & filters.private)
 async def add_filter(client, message):
-    if message.from_user.id not in Config.ADMINS:
+    if message.from_user.id not in Config.OWNER_ID:
         return await message.reply_text("You are not authorized to use this command.")
 
     try:
@@ -46,7 +46,7 @@ async def add_filter(client, message):
 # Admin-only filter deletion
 @app.on_message(filters.command("delfilter") & filters.private)
 async def delete_filter(client, message):
-    if message.from_user.id not in Config.ADMINS:
+    if message.from_user.id not in Config.OWNER_ID:
         return await message.reply_text("You are not authorized to use this command.")
 
     try:
@@ -69,11 +69,11 @@ async def keyword_reply(client, message):
         await message.reply_text(result["reply"])
 
 # Notify log channel on startup
-@app.on_message(filters.command("ping") & filters.user(Config.ADMINS))
+@app.on_message(filters.command("ping") & filters.user(Config.OWNER_ID))
 async def ping_handler(client, message):
     await message.reply_text("Pong!")
 
-@app.on_message(filters.command("log") & filters.user(Config.ADMINS))
+@app.on_message(filters.command("log") & filters.user(Config.OWNER_ID))
 async def log_startup(client, message):
     await client.send_message(Config.LOG_CHANNEL, "Bot started and ready.")
 
