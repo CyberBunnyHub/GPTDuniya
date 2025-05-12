@@ -25,48 +25,48 @@ async def start_cmd(client, message: Message):
 
     await message.reply_photo(image, caption=caption, reply_markup=keyboard)
 
+from bson.objectid import ObjectId
 
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & filters.document)
 async def save_to_db(client, message: Message):
     if not message.caption:
-        print("Received a document without caption. Skipping.")
         return
-
-    try:
-        db.insert_one({
-            "file_id": message.document.file_id,
-            "file_name": message.caption.lower()
-        })
-        print(f"Saved: {message.caption.lower()}")
-    except Exception as e:
-        print(f"Error saving to DB: {e}")
+    data = {
+        "file_id": message.document.file_id,
+        "file_name": message.caption.lower()
+    }
+    db.insert_one(data)
 
 @app.on_message(filters.text & ~filters.command(["start"]) & ~filters.me)
 async def search_file(client, message: Message):
     query = message.text.strip().lower()
-    print(f"Searching for: {query}")
     results = list(db.find({"file_name": {"$regex": query, "$options": "i"}}))
-    print(f"Found {len(results)} result(s)")
 
     if not results:
         await message.reply("No results found.")
         return
 
     buttons = [
-        [InlineKeyboardButton(doc["file_name"].title(), callback_data=f"get_{doc['file_id']}")]
+        [InlineKeyboardButton(doc["file_name"].title()[:30], callback_data=f"get_{str(doc['_id'])}")]
         for doc in results[:10]
     ]
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
 
+from bson import ObjectId
+
 @app.on_callback_query(filters.regex(r"get_(.*)"))
 async def send_file(client, callback_query):
-    file_id = callback_query.data.split("_", 1)[1]
+    mongo_id = callback_query.data.split("_", 1)[1]
     try:
-        await callback_query.message.reply_document(file_id)
+        doc = db.find_one({"_id": ObjectId(mongo_id)})
+        if not doc:
+            await callback_query.message.reply("File not found.")
+            return
+        await callback_query.message.reply_document(doc["file_id"])
         await callback_query.answer("File sent.")
     except Exception as e:
-        await callback_query.message.reply(f"Failed to send file:\n`{e}`", quote=True)
-        await callback_query.answer("Error sending file.", show_alert=True)
+        await callback_query.message.reply(f"Error: {e}")
+        await callback_query.answer("Failed.", show_alert=True)
 
 @app.on_message(filters.command("dump") & filters.user(2511163521))
 async def dump(client, message):
