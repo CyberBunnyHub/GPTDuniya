@@ -25,6 +25,7 @@ async def start_cmd(client, message: Message):
 
     # If a file ID is passed in /start
     if len(args) > 1 and args[1].startswith("file_"):
+        
     try:
         file_id = base64.urlsafe_b64decode(args[1][5:]).decode()
         await message.reply_document(file_id)
