@@ -68,7 +68,7 @@ async def send_file(client, callback_query):
         await callback_query.message.reply(f"Error: {e}")
         await callback_query.answer("Failed.", show_alert=True)
 
-@app.on_message(filters.command("dump") & filters.user("OWNER_ID"))
+@app.on_message(filters.command("dump") & filters.user(6887303054))
 async def dump(client, message):
     files = list(db.find())
     if not files:
