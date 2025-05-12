@@ -9,17 +9,20 @@ app = Client("AutoFilterBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TO
 mongo = MongoClient(MONGO_URI)
 db = mongo["autofilter"]["files"]
 
-
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
-    args = message.text.split(" ", 1)
+    args = message.command
 
-    if len(args) == 2 and args[1].startswith("file_"):
-        file_id = args[1][5:]
-        await message.reply_document(file_id)
+    # Check if a file_id is passed in /start
+    if len(args) > 1:
+        file_id = args[1]
+        try:
+            await message.reply_document(file_id)
+        except Exception as e:
+            await message.reply(f"Error sending file: {e}")
         return
 
-    # Normal welcome start
+    # Default start response with image and buttons
     image = random.choice(IMAGE_URLS)
     caption = random.choice(CAPTIONS)
 
