@@ -1,82 +1,76 @@
-#!/usr/bin/env python3
-import logging
+# bot.py
+
+from pyrogram import Client, filters
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from pymongo import MongoClient
+from config import *
+
 import random
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
 
-# Configure logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+# Pyrogram Client
+app = Client("AutoFilterBot", bot_token=BOT_TOKEN)
 
-# List of image URLs (currently one URL; add more if desired)
-IMAGE_URLS = [
-    "https://i.ibb.co/dJM3VxB4/44ded1a7fe4b.jpg" # Replace with your actual image URL
-]
+# MongoDB
+mongo = MongoClient(MONGO_URI)
+db = mongo[DB_NAME][COLLECTION_NAME]
 
-# List of sample captions
-CAPTIONS = [
-    "Hello there! Welcome to AutoFilter Bot.",
-    "Hi! I'm your AutoFilter Bot, ready to serve!",
-    "Greetings! Let me filter for you."
-]
-
-# URLs for the buttons (replace these later with your actual channel/group links)
-UPDATE_CHANNEL_URL = "https://t.me/YourUpdateChannel"
-SUPPORT_GROUP_URL = "https://t.me/YourSupportGroup"
-
-def start(update: Update, context: CallbackContext) -> None:
-    """Sends a random image with a random caption and an inline keyboard."""
-    # Choose a random image and caption
-    selected_image = random.choice(IMAGE_URLS)
-    selected_caption = random.choice(CAPTIONS)
+# /start command
+@app.on_message(filters.private & filters.command("start"))
+async def start_cmd(client, message: Message):
+    image = random.choice(IMAGE_URLS)
+    caption = random.choice(CAPTIONS)
     
-    # Create inline keyboard with 5 buttons
-    keyboard = [
-        # Button for adding the bot to a group
-        [InlineKeyboardButton("Add Me to Group", url=f"https://t.me/{context.bot.username}?startgroup=true")],
-        # Buttons for Help and About as callbacks
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
         [InlineKeyboardButton("Help", callback_data="help"),
          InlineKeyboardButton("About", callback_data="about")],
-        # Buttons for Update Channel and Support Group
-        [InlineKeyboardButton("Update Channel", url=UPDATE_CHANNEL_URL)],
-        [InlineKeyboardButton("Support Group", url=SUPPORT_GROUP_URL)]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+        [InlineKeyboardButton("Update Channel", url=UPDATE_CHANNEL)],
+        [InlineKeyboardButton("Support Group", url=SUPPORT_GROUP)]
+    ])
     
-    # Send the photo with the selected caption and inline keyboard
-    update.message.reply_photo(photo=selected_image, caption=selected_caption, reply_markup=reply_markup)
+    await message.reply_photo(photo=image, caption=caption, reply_markup=keyboard)
 
-def button_handler(update: Update, context: CallbackContext) -> None:
-    """Handles callback queries from inline buttons."""
-    query = update.callback_query
-    query.answer()  # Acknowledge the callback query
+# Button callbacks
+@app.on_callback_query()
+async def cb_handler(client, callback):
+    data = callback.data
+    if data == "help":
+        await callback.message.edit_caption("Send a movie name and I will try to find matching files.")
+    elif data == "about":
+        await callback.message.edit_caption("Auto Filter Bot v1.0 | Built with Pyrogram and MongoDB.")
+    await callback.answer()
 
-    if query.data == "help":
-        # Respond with help information – customize as needed
-        query.edit_message_caption(caption="This is the help section. Use /start to restart the bot or explore more features soon!")
-    elif query.data == "about":
-        # Respond with about information – customize as needed
-        query.edit_message_caption(caption="AutoFilter Bot v1.0\nCreated with love using Python and python-telegram-bot.")
+# Store new files (only from DB Channel)
+@app.on_message(filters.channel & filters.chat(DB_CHANNEL) & filters.document)
+async def save_to_db(client, message: Message):
+    if not message.caption:
+        return
+    db.insert_one({
+        "file_id": message.document.file_id,
+        "file_name": message.caption.lower()
+    })
 
-def main() -> None:
-    """Starts the bot."""
-    # Replace 'YOUR_BOT_TOKEN_HERE' with your bot's token from BotFather
-    BOT_TOKEN = "7845318227:AAGfr0cikK92HY-DhIGMVTD3L0VeaKktUp8"
+# Search handler (private + group)
+@app.on_message(filters.text & ~filters.command(["start"]))
+async def search_file(client, message: Message):
+    query = message.text.strip().lower()
+    results = list(db.find({"file_name": {"$regex": f"^{query}"}}))
 
-    updater = Updater(BOT_TOKEN, use_context=True)
-    dispatcher = updater.dispatcher
+    if not results:
+        await message.reply("No results found.")
+        return
 
-    # Add command and callback query handlers
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CallbackQueryHandler(button_handler))
+    buttons = [
+        [InlineKeyboardButton(doc["file_name"], callback_data=f"get_{doc['file_id']}")]
+        for doc in results[:10]
+    ]
+    await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
 
-    # Start the Bot
-    updater.start_polling()
-    logger.info("Bot started. Press Ctrl+C to stop.")
-    updater.idle()
+# File callback
+@app.on_callback_query(filters.regex(r"get_"))
+async def send_file(client, callback):
+    file_id = callback.data.split("_", 1)[1]
+    await callback.message.reply_document(file_id)
+    await callback.answer()
 
-if __name__ == '__main__':
-    main()
+app.run()
