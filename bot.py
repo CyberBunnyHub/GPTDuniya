@@ -39,7 +39,9 @@ async def save_to_db(client, message: Message):
 @app.on_message(filters.text & ~filters.command(["start"]) & ~filters.me)
 async def search_file(client, message: Message):
     query = message.text.strip().lower()
+    print(f"Searching for: {query}")
     results = list(db.find({"file_name": {"$regex": query, "$options": "i"}}))
+    print(f"Found {len(results)} result(s)")
 
     if not results:
         await message.reply("No results found.")
@@ -51,12 +53,15 @@ async def search_file(client, message: Message):
     ]
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
 
-
 @app.on_callback_query(filters.regex(r"get_(.*)"))
 async def send_file(client, callback_query):
     file_id = callback_query.data.split("_", 1)[1]
-    await callback_query.message.reply_document(file_id)
-    await callback_query.answer()
+    try:
+        await callback_query.message.reply_document(file_id)
+        await callback_query.answer("File sent.")
+    except Exception as e:
+        await callback_query.message.reply(f"Failed to send file:\n`{e}`", quote=True)
+        await callback_query.answer("Error sending file.", show_alert=True)
 
 @app.on_message(filters.command("dump") & filters.user(2511163521))
 async def dump(client, message):
@@ -66,6 +71,7 @@ async def dump(client, message):
     else:
         reply_text = "\n".join([f"{x['file_name']}" for x in files[:5]])
         await message.reply(f"Sample stored files:\n{reply_text}")
+
 
 print("Bot is starting...")
 app.run()
