@@ -37,7 +37,7 @@ async def save_to_db(client, message: Message):
     }
     db.insert_one(data)
 
-@app.on_message(filters.text & ~filters.command(["start"]) & ~filters.me)
+@app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.me)
 async def search_file(client, message: Message):
     query = message.text.strip().lower()
     results = list(db.find({"file_name": {"$regex": query, "$options": "i"}}))
