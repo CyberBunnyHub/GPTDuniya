@@ -57,3 +57,6 @@ async def send_file(client, callback_query):
     file_id = callback_query.data.split("_", 1)[1]
     await callback_query.message.reply_document(file_id)
     await callback_query.answer()
+
+print("Bot is starting...")
+app.run()
