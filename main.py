@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # MongoDB connection
-mongo_client = MongoClient(Config.MONGO_URL)
+mongo_client = MongoClient(Config.MONGO_URI)
 db = mongo_client["autofilterbot"]
 filters_collection = db["filters"]
 
