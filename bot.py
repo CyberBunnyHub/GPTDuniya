@@ -12,6 +12,14 @@ db = mongo["autofilter"]["files"]
 
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
+    args = message.text.split(" ", 1)
+
+    if len(args) == 2 and args[1].startswith("file_"):
+        file_id = args[1][5:]
+        await message.reply_document(file_id)
+        return
+
+    # Normal welcome start
     image = random.choice(IMAGE_URLS)
     caption = random.choice(CAPTIONS)
 
@@ -46,10 +54,12 @@ async def search_file(client, message: Message):
         await message.reply("No results found.")
         return
 
-    buttons = [
-        [InlineKeyboardButton(doc["file_name"].title()[:30], callback_data=f"get_{str(doc['_id'])}")]
-        for doc in results[:10]
-    ]
+    bot_username = (await client.get_me()).username
+buttons = [
+    [InlineKeyboardButton(doc["file_name"].title(), url=f"https://t.me/{bot_username}?start=file_{doc['file_id']}")]
+    for doc in results[:10]
+]
+
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
 
 from bson import ObjectId
