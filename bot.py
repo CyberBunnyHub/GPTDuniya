@@ -8,7 +8,8 @@ from config import *
 import random
 
 # Pyrogram Client
-app = Client("AutoFilterBot", bot_token=BOT_TOKEN)
+from config import API_ID, API_HASH 
+app = Client("AutoFilterBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 # MongoDB
 mongo = MongoClient(MONGO_URI)
