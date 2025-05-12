@@ -17,17 +17,18 @@ groups_col = db["groups"]
 async def start_cmd(client, message: Message):
     args = message.command
 
-    # File delivery if start contains file_ ID
+    # Deliver file if encoded file_id is passed
     if len(args) > 1 and args[1].startswith("file_"):
         try:
-            file_id = base64.urlsafe_b64decode(args[1][5:]).decode()
+            b64_file_id = args[1][5:]
+            file_id = base64.urlsafe_b64decode(b64_file_id).decode()
             await message.reply_document(file_id)
             return
         except Exception as e:
-            await message.reply(f"Sorry, couldn't send the file.\nError: `{e}`", quote=True)
+            await message.reply(f"**Failed to send file**\n`{e}`")
             return
 
-    # Regular /start
+    # Default start message
     image = random.choice(IMAGE_URLS)
     caption = random.choice(CAPTIONS)
 
@@ -62,15 +63,14 @@ async def search_file(client, message: Message):
         return
 
     buttons = []
-    bot_username = (await client.get_me()).username
     for doc in results[:10]:
-        encoded_id = base64.urlsafe_b64encode(doc["file_id"].encode()).decode()
-        buttons.append([
-            InlineKeyboardButton(
-                doc["file_name"].title()[:30],
-                url=f"https://t.me/{bot_username}?start=file_{encoded_id}"
-            )
-        ])
+        try:
+            file_id = doc["file_id"]
+            encoded_id = base64.urlsafe_b64encode(file_id.encode()).decode()
+            url = f"https://t.me/{(await client.get_me()).username}?start=file_{encoded_id}"
+            buttons.append([InlineKeyboardButton(doc["file_name"].title()[:30], url=url)])
+        except Exception as e:
+            print("Encoding error:", e)
 
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
 
