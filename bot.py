@@ -1,6 +1,7 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pymongo import MongoClient
+from bson import ObjectId
 import random, base64
 from config import BOT_TOKEN, API_ID, API_HASH, MONGO_URI, DB_CHANNEL, IMAGE_URLS, CAPTIONS, UPDATE_CHANNEL, SUPPORT_GROUP
 
@@ -48,8 +49,6 @@ async def start_cmd(client, message: Message):
     await message.reply_photo(image, caption=caption, reply_markup=keyboard)
 
 # Save files from DB_CHANNEL
-from bson import ObjectId
-
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & filters.document)
 async def save_file(client, message: Message):
     if not message.caption:
@@ -85,8 +84,7 @@ async def search_file(client, message: Message):
 
         if not isinstance(chat_id, int) or not isinstance(msg_id, int):
             continue
-
-        encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
+            
         url = f"https://t.me/{bot_username}?start={str(doc['_id'])}"
         buttons.append([InlineKeyboardButton(f"🎬 {file_name[:30]}", url=url)])
 
@@ -109,8 +107,7 @@ async def send_movie_list(client, message: Message):
         msg_id = doc.get("message_id")
         file_name = doc.get("file_name", "Movie")
 
-        encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
-        url = f"https://t.me/{bot_username}?start=file_{encoded}"
+        url = f"https://t.me/{bot_username}?start={str(doc['_id'])}"
         buttons.append([InlineKeyboardButton(f"🎬 {file_name[:30]}", url=url)])
 
     await message.reply("Choose a movie:", reply_markup=InlineKeyboardMarkup(buttons))
