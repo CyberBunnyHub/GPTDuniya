@@ -85,10 +85,16 @@ async def search_file(client, message: Message):
         if not isinstance(chat_id, int) or not isinstance(msg_id, int):
             continue
             
-        url = f"https://t.me/{bot_username}?start={str(doc['_id'])}"
+        if doc.get("_id") and bot_username:
+        file_id = str(doc["_id"])
+        url = f"https://t.me/{bot_username}?start={file_id}"
         buttons.append([InlineKeyboardButton(f"🎬 {file_name[:30]}", url=url)])
 
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
+    
+    if not buttons:
+       await message.reply("Something went wrong building buttons.")
+    return
 
 # /movie command to list movies in group
 @app.on_message(filters.command("movie") & filters.group)
@@ -107,7 +113,9 @@ async def send_movie_list(client, message: Message):
         msg_id = doc.get("message_id")
         file_name = doc.get("file_name", "Movie")
 
-        url = f"https://t.me/{bot_username}?start={str(doc['_id'])}"
+        if doc.get("_id") and bot_username:
+        file_id = str(doc["_id"])
+        url = f"https://t.me/{bot_username}?start={file_id}"
         buttons.append([InlineKeyboardButton(f"🎬 {file_name[:30]}", url=url)])
 
     await message.reply("Choose a movie:", reply_markup=InlineKeyboardMarkup(buttons))
@@ -138,6 +146,12 @@ async def track_user(client, message: Message):
 async def track_group(client, message: Message):
     group_id = message.chat.id
     groups_col.update_one({"_id": group_id}, {"$set": {"title": message.chat.title}}, upsert=True)
+
+bot = await client.get_me()
+bot_username = bot.username
+if not bot_username:
+    await message.reply("Bot username not found.")
+    return
 
 print("Bot is starting...")
 app.run()
