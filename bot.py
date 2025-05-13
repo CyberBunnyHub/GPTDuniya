@@ -57,8 +57,8 @@ async def save_file(client, message: Message):
 
     files_col.insert_one({
         "file_name": message.caption.lower(),
-        "chat_id": message.chat.id,  # correct channel ID like -100...
-        "message_id": message.id      # correct message ID
+        "chat_id": message.chat.id,
+        "message_id": message.id  # Fixed here
     })
 
 # Search handler
@@ -76,20 +76,19 @@ async def search_file(client, message: Message):
 
     for doc in results[:10]:
         try:
-            chat_id = doc["chat_id"]
-            msg_id = doc["message_id"]
+            chat_id = doc.get("chat_id")
+            msg_id = doc.get("message_id")
             file_name = doc.get("file_name", "Unnamed")
 
-            # Skip if essential data missing
-            if not chat_id or not msg_id:
-                continue
+            if not isinstance(chat_id, int) or not isinstance(msg_id, int):
+                continue  # skip invalid ones
 
             encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
             url = f"https://t.me/{bot_username}?start=file_{encoded}"
 
             buttons.append([InlineKeyboardButton(file_name[:30], url=url)])
 
-        except Exception as e:
+        except Exception:
             continue
 
     if not buttons:
