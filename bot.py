@@ -77,20 +77,19 @@ async def search_file(client, message: Message):
             file_name = doc.get("file_name", "Unnamed")
 
             if not isinstance(chat_id, int) or not isinstance(msg_id, int):
-                continue  # skip invalid ones
+                continue
 
             encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
             url = f"https://t.me/{bot_username}?start=file_{encoded}"
-
             buttons.append([InlineKeyboardButton(file_name[:30], url=url)])
 
         except Exception:
             continue
 
-if buttons:
-    await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
-else:
-    await message.reply("No valid files found.")
+    if buttons:
+        await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
+    else:
+        await message.reply("No valid files found.")
 
 # /stats command
 @app.on_message(filters.command("stats"))
