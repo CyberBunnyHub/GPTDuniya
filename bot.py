@@ -29,8 +29,6 @@ async def start_cmd(client, message: Message):
         except Exception as e:
             await message.reply(f"❌ Error while sending the file.\n\n`{e}`")
             return
-    # Proceed with the standard start message
-    # ...
 
     # Normal welcome message
     image = random.choice(IMAGE_URLS)
@@ -54,10 +52,10 @@ async def save_file(client, message: Message):
     files_col.insert_one({
         "file_name": message.caption.lower(),
         "chat_id": message.chat.id,
-        "message_id": message.id  # Fixed here
+        "message_id": message.id
     })
 
-# Search handler
+# File search (both private & group)
 @app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)
 async def search_file(client, message: Message):
     query = message.text.strip().lower()
@@ -81,8 +79,7 @@ async def search_file(client, message: Message):
 
             encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
             url = f"https://t.me/{bot_username}?start=file_{encoded}"
-            buttons.append([InlineKeyboardButton(file_name[:30], url=url)])
-
+            buttons.append([InlineKeyboardButton(f"🎬 {file_name[:30]}", url=url)])
         except Exception:
             continue
 
@@ -90,6 +87,29 @@ async def search_file(client, message: Message):
         await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
     else:
         await message.reply("No valid files found.")
+
+# /movie command in group
+@app.on_message(filters.command("movie") & filters.group)
+async def send_movie_list(client, message: Message):
+    results = list(files_col.find().limit(10))  # Change filter logic if needed
+
+    if not results:
+        await message.reply("No movies found.")
+        return
+
+    bot_username = (await client.get_me()).username
+    buttons = []
+
+    for doc in results:
+        chat_id = doc.get("chat_id")
+        msg_id = doc.get("message_id")
+        file_name = doc.get("file_name", "Movie")
+
+        encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
+        url = f"https://t.me/{bot_username}?start=file_{encoded}"
+        buttons.append([InlineKeyboardButton(f"🎬 {file_name[:30]}", url=url)])
+
+    await message.reply("Choose a movie:", reply_markup=InlineKeyboardMarkup(buttons))
 
 # /stats command
 @app.on_message(filters.command("stats"))
