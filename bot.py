@@ -26,13 +26,17 @@ async def start_cmd(client, message: Message):
             chat_id = int(chat_id_str)
             msg_id = int(msg_id_str)
 
-            await client.copy_message(chat_id=message.chat.id, from_chat_id=chat_id, message_id=msg_id)
+            await client.copy_message(
+                chat_id=message.chat.id,
+                from_chat_id=chat_id,
+                message_id=msg_id
+            )
             return
         except Exception as e:
-            await message.reply(f"❌ Error while sending the file.\n\n`{e}`")
+            await message.reply(f"❌ File not found or inaccessible.\n\n`{e}`")
             return
 
-    # Normal start message
+    # Normal welcome message
     image = random.choice(IMAGE_URLS)
     caption = random.choice(CAPTIONS)
 
@@ -53,8 +57,8 @@ async def save_file(client, message: Message):
 
     files_col.insert_one({
         "file_name": message.caption.lower(),
-        "chat_id": message.chat.id,
-        "message_id": message.id
+        "chat_id": message.chat.id,  # correct channel ID like -100...
+        "message_id": message.id      # correct message ID
     })
 
 # Search handler
@@ -68,30 +72,16 @@ async def search_file(client, message: Message):
         return
 
     buttons = []
+    bot_username = (await client.get_me()).username
     for doc in results[:10]:
         try:
-            chat_id = doc.get("chat_id")
-            msg_id = doc.get("message_id")
-            file_name = doc.get("file_name", "File")
-
-            if not chat_id or not msg_id:
-                continue  # Skip if essential fields are missing
-
+            chat_id = doc["chat_id"]
+            msg_id = doc["message_id"]
             encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
-            url = f"https://t.me/{(await client.get_me()).username}?start=file_{encoded}"
-
-            # Fallback if filename is missing
-            if not isinstance(file_name, str) or not file_name.strip():
-                file_name = "Unnamed File"
-
-            buttons.append([InlineKeyboardButton(file_name[:30], url=url)])
-        except Exception as e:
-            print(f"Error generating button: {e}")
+            url = f"https://t.me/{bot_username}?start=file_{encoded}"
+            buttons.append([InlineKeyboardButton(doc["file_name"][:30], url=url)])
+        except Exception:
             continue
-
-    if not buttons:
-        await message.reply("No valid files found.")
-        return
 
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
 
