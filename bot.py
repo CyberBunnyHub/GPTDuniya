@@ -54,7 +54,7 @@ async def save_file(client, message: Message):
     files_col.insert_one({
         "file_name": message.caption.lower(),
         "chat_id": message.chat.id,
-        "message_id": message.message_id
+        "message_id": message.id
     })
 
 # Search handler
