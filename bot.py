@@ -59,7 +59,6 @@ async def start_cmd(client, message: Message):
             await message.reply(f"❌ Error retrieving file:\n\n`{e}`")
         return
 
-    # Default start screen
     image = random.choice(IMAGE_URLS)
     caption = random.choice(CAPTIONS)
     keyboard = InlineKeyboardMarkup([
@@ -69,6 +68,19 @@ async def start_cmd(client, message: Message):
         [InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
     ])
     await message.reply_photo(image, caption=caption, reply_markup=keyboard)
+
+# Thank you message when bot is added to a group
+@app.on_message(filters.new_chat_members)
+async def welcome_new_members(client, message: Message):
+    for member in message.new_chat_members:
+        if member.id == (await client.get_me()).id:
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("Help", callback_data="help"), InlineKeyboardButton("About", callback_data="about")]
+            ])
+            await message.reply(
+                "Thank you for adding me to your group!",
+                reply_markup=keyboard
+            )
 
 # Save incoming files from DB_CHANNEL
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
@@ -80,7 +92,7 @@ async def save_file(client, message: Message):
     file_doc = {
         "file_name": file_name,
         "chat_id": message.chat.id,
-        "message_id": message.id  # <-- Corrected this line
+        "message_id": message.id
     }
     result = files_col.insert_one(file_doc)
     print(f"Saved file with ID: {result.inserted_id}")
@@ -107,10 +119,11 @@ async def send_movie_list(client, message: Message):
     markup = generate_pagination_buttons(results, (await client.get_me()).username, page=0, per_page=5, prefix="movie")
     await message.reply("Choose a movie:", reply_markup=markup)
 
-# Handle pagination callbacks
+# Handle all callback queries
 @app.on_callback_query()
-async def pagination_handler(client, query: CallbackQuery):
+async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
+
     if data.startswith(("search:", "movie:")):
         prefix, page_str, query_text = data.split(":", 2)
         page = int(page_str)
@@ -119,8 +132,39 @@ async def pagination_handler(client, query: CallbackQuery):
         try:
             await query.message.edit_text("✅ Results found:" if prefix == "search" else "Choose a movie:", reply_markup=markup)
         except Exception:
-            pass  # Avoid MESSAGE_NOT_MODIFIED
+            pass
         await query.answer()
+
+    elif data == "help":
+        help_text = (
+            "**Help Menu:**\n\n"
+            "- Send a movie name to search.\n"
+            "- Use /movie to browse files.\n"
+            "- Admins can use /delete <file_id> to remove files.\n"
+            "- Add me to a group to enable autofilter."
+        )
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)],
+            [InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+        ])
+        await query.message.edit_text(help_text, reply_markup=keyboard)
+        await query.answer()
+
+    elif data == "about":
+        about_text = (
+            "**About Bot:**\n\n"
+            "- Built with Python & Pyrogram\n"
+            "- Uses MongoDB for storage\n"
+            "- Auto-filter and private file delivery\n"
+            "- Supports deep linking and inline buttons"
+        )
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)],
+            [InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+        ])
+        await query.message.edit_text(about_text, reply_markup=keyboard)
+        await query.answer()
+
     elif data == "noop":
         await query.answer()
 
@@ -155,18 +199,15 @@ async def track_group(client, message: Message):
 @app.on_message(filters.command("delete") & filters.group)
 async def delete_file_by_id(client, message: Message):
     try:
-        # Check if user is admin
         member = await client.get_chat_member(message.chat.id, message.from_user.id)
         if member.status not in ("administrator", "creator"):
             return await message.reply("Only group admins can delete files.")
 
-        # Check if file ID is provided
         if len(message.command) < 2:
             return await message.reply("Usage: /delete <file_id>")
 
         file_id = message.command[1]
 
-        # Try to convert to ObjectId and delete
         try:
             result = files_col.find_one_and_delete({"_id": ObjectId(file_id)})
         except Exception:
