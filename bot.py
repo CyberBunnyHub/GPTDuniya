@@ -17,17 +17,22 @@ groups_col = db["groups"]
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
     args = message.text.split()
-    if len(args) > 1 and args[1].startswith("file_"):
+    if len(args) > 1:
+        file_id = args[1]
         try:
-            encoded_data = args[1][5:]
-            decoded = base64.urlsafe_b64decode(encoded_data.encode()).decode()
-            chat_id_str, msg_id_str = decoded.split("_")
-            chat_id = int(chat_id_str)
-            msg_id = int(msg_id_str)
-            await client.copy_message(chat_id=message.chat.id, from_chat_id=chat_id, message_id=msg_id)
+            doc = files_col.find_one({"_id": ObjectId(file_id)})
+            if not doc:
+                await message.reply("File not found.")
+                return
+
+            await client.copy_message(
+                chat_id=message.chat.id,
+                from_chat_id=doc["chat_id"],
+                message_id=doc["message_id"]
+            )
             return
         except Exception as e:
-            await message.reply(f"❌ Error while sending the file.\n\n`{e}`")
+            await message.reply(f"❌ Error retrieving file.\n\n`{e}`")
             return
 
     image = random.choice(IMAGE_URLS)
@@ -43,18 +48,22 @@ async def start_cmd(client, message: Message):
     await message.reply_photo(image, caption=caption, reply_markup=keyboard)
 
 # Save files from DB_CHANNEL
+from bson import ObjectId
+
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & filters.document)
 async def save_file(client, message: Message):
     if not message.caption:
         return
 
     file_name = message.caption.strip().lower()
-
-    files_col.insert_one({
+    file_doc = {
         "file_name": file_name,
         "chat_id": message.chat.id,
         "message_id": message.message_id
-    })
+    }
+    result = files_col.insert_one(file_doc)
+    file_id = str(result.inserted_id)
+    print(f"Saved file with ID: {file_id}")
 
 # Search files by name
 @app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)
@@ -78,7 +87,7 @@ async def search_file(client, message: Message):
             continue
 
         encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
-        url = f"https://t.me/{bot_username}?start=file_{encoded}"
+        url = f"https://t.me/{bot_username}?start={str(doc['_id'])}"
         buttons.append([InlineKeyboardButton(f"🎬 {file_name[:30]}", url=url)])
 
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
