@@ -16,28 +16,36 @@ groups_col = db["groups"]
 # /start command
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
-    args = message.command
+    args = message.text.split()
 
+    # If a deep link is passed
     if len(args) > 1 and args[1].startswith("file_"):
         try:
-            file_id = base64.urlsafe_b64decode(args[1][5:]).decode()
-            await message.reply_document(file_id)
+            encoded_data = args[1][5:]
+            decoded = base64.urlsafe_b64decode(encoded_data).decode()
+            chat_id_str, msg_id_str = decoded.split("_")
+            chat_id = int(chat_id_str)
+            msg_id = int(msg_id_str)
+
+            # forward the message
+            await client.copy_message(chat_id=message.chat.id, from_chat_id=chat_id, message_id=msg_id)
             return
         except Exception as e:
-            await message.reply(f"❌ Failed to send file:\n`{e}`")
+            await message.reply(f"❌ Error while sending the file.\n\n`{e}`")
             return
 
+    # Normal start message
     image = random.choice(IMAGE_URLS)
     caption = random.choice(CAPTIONS)
 
-    buttons = [
-        [InlineKeyboardButton("➕ Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
-        [InlineKeyboardButton("ℹ️ Help", callback_data="help"), InlineKeyboardButton("📌 About", callback_data="about")],
-        [InlineKeyboardButton("📢 Updates", url=UPDATE_CHANNEL)],
-        [InlineKeyboardButton("💬 Support", url=SUPPORT_GROUP)]
-    ]
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("➕ Add Me to Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
+        [InlineKeyboardButton("Help", callback_data="help"), InlineKeyboardButton("About", callback_data="about")],
+        [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)],
+        [InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+    ])
 
-    await message.reply_photo(image, caption=caption, reply_markup=InlineKeyboardMarkup(buttons))
+    await message.reply_photo(image, caption=caption, reply_markup=keyboard)
 
 # Save files from DB_CHANNEL
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & filters.document)
@@ -48,7 +56,12 @@ async def save_file(client, message: Message):
         "file_id": message.document.file_id,
         "file_name": message.caption.lower()
     }
-    files_col.insert_one(data)
+    
+   files_col.insert_one({
+    "file_name": message.caption.lower(),
+    "chat_id": message.chat.id,
+    "message_id": message.message_id
+})
 
 # Search handler
 @app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)
@@ -62,12 +75,13 @@ async def search_file(client, message: Message):
 
     buttons = []
     for doc in results[:10]:
-        try:
-            file_id = doc["file_id"]
-            encoded = base64.urlsafe_b64encode(file_id.encode()).decode()
-            url = f"https://t.me/{(await client.get_me()).username}?start=file_{encoded}"
-            buttons.append([InlineKeyboardButton(doc["file_name"].title()[:30], url=url)])
-        except:
+    chat_id = DB_CHANNEL  # e.g., -1001234567890
+    msg_id = doc["message_id"]
+    encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
+    url = f"https://t.me/{(await client.get_me()).username}?start=file_{encoded}"
+    buttons.append([InlineKeyboardButton(doc["file_name"][:30], url=url)])
+   
+    except:
             continue
 
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
