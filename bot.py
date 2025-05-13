@@ -87,7 +87,7 @@ async def search_file(client, message: Message):
         except Exception:
             continue
 
-    if buttons:
+if buttons:
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
 else:
     await message.reply("No valid files found.")
