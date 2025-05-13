@@ -17,7 +17,6 @@ groups_col = db["groups"]
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
     args = message.text.split()
-
     if len(args) > 1 and args[1].startswith("file_"):
         try:
             encoded_data = args[1][5:]
@@ -25,16 +24,13 @@ async def start_cmd(client, message: Message):
             chat_id_str, msg_id_str = decoded.split("_")
             chat_id = int(chat_id_str)
             msg_id = int(msg_id_str)
-
-            await client.copy_message(
-                chat_id=message.chat.id,
-                from_chat_id=chat_id,
-                message_id=msg_id
-            )
+            await client.copy_message(chat_id=message.chat.id, from_chat_id=chat_id, message_id=msg_id)
             return
         except Exception as e:
-            await message.reply(f"❌ File not found or inaccessible.\n\n`{e}`")
+            await message.reply(f"❌ Error while sending the file.\n\n`{e}`")
             return
+    # Proceed with the standard start message
+    # ...
 
     # Normal welcome message
     image = random.choice(IMAGE_URLS)
@@ -91,11 +87,10 @@ async def search_file(client, message: Message):
         except Exception:
             continue
 
-    if not buttons:
-        await message.reply("Found matching files, but all had invalid links.")
-        return
-
+    if buttons:
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
+else:
+    await message.reply("No valid files found.")
 
 # /stats command
 @app.on_message(filters.command("stats"))
