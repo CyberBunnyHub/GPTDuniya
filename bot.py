@@ -157,5 +157,28 @@ async def track_group(client, message: Message):
     group_id = message.chat.id
     groups_col.update_one({"_id": group_id}, {"$set": {"title": message.chat.title}}, upsert=True)
 
+from pyrogram.errors import ChatAdminRequired
+
+# /delete command (admin-only, group only)
+@app.on_message(filters.command("delete") & filters.group)
+async def delete_file(client, message: Message):
+    user = await client.get_chat_member(message.chat.id, message.from_user.id)
+    if not user.status in ("administrator", "creator"):
+        await message.reply("You need to be an admin to use this command.")
+        return
+
+    if len(message.command) < 2:
+        await message.reply("Usage: /delete <file name>")
+        return
+
+    file_name_query = " ".join(message.command[1:]).strip().lower()
+
+    result = files_col.find_one_and_delete({"file_name": {"$regex": f"^{file_name_query}$", "$options": "i"}})
+
+    if result:
+        await message.reply(f"✅ Deleted file: `{result.get('file_name', 'Unknown')}`", quote=True)
+    else:
+        await message.reply("❌ File not found.", quote=True)
+
 print("Bot is starting...")
 app.run()
