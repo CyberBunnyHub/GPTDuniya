@@ -18,7 +18,6 @@ groups_col = db["groups"]
 async def start_cmd(client, message: Message):
     args = message.text.split()
 
-    # If a deep link is passed
     if len(args) > 1 and args[1].startswith("file_"):
         try:
             encoded_data = args[1][5:]
@@ -27,7 +26,6 @@ async def start_cmd(client, message: Message):
             chat_id = int(chat_id_str)
             msg_id = int(msg_id_str)
 
-            # forward the message
             await client.copy_message(chat_id=message.chat.id, from_chat_id=chat_id, message_id=msg_id)
             return
         except Exception as e:
@@ -52,16 +50,12 @@ async def start_cmd(client, message: Message):
 async def save_file(client, message: Message):
     if not message.caption:
         return
-    data = {
-        "file_id": message.document.file_id,
-        "file_name": message.caption.lower()
-    }
-    
-   files_col.insert_one({
-    "file_name": message.caption.lower(),
-    "chat_id": message.chat.id,
-    "message_id": message.message_id
-})
+
+    files_col.insert_one({
+        "file_name": message.caption.lower(),
+        "chat_id": message.chat.id,
+        "message_id": message.message_id
+    })
 
 # Search handler
 @app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)
@@ -75,13 +69,13 @@ async def search_file(client, message: Message):
 
     buttons = []
     for doc in results[:10]:
-    chat_id = DB_CHANNEL  # e.g., -1001234567890
-    msg_id = doc["message_id"]
-    encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
-    url = f"https://t.me/{(await client.get_me()).username}?start=file_{encoded}"
-    buttons.append([InlineKeyboardButton(doc["file_name"][:30], url=url)])
-   
-    except:
+        try:
+            chat_id = doc["chat_id"]
+            msg_id = doc["message_id"]
+            encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
+            url = f"https://t.me/{(await client.get_me()).username}?start=file_{encoded}"
+            buttons.append([InlineKeyboardButton(doc["file_name"][:30], url=url)])
+        except Exception:
             continue
 
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
@@ -97,9 +91,8 @@ async def stats(client, message: Message):
         "**Bot Stats:**\n\n"
         f"**Users:** {total_users}\n"
         f"**Groups:** {total_groups}\n"
-        f"**Total Files:** {total_files}\n\n"
+        f"**Total Files:** {total_files}"
     )
-
     await message.reply(text)
 
 # Track users
