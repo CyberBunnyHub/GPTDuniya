@@ -73,15 +73,28 @@ async def search_file(client, message: Message):
 
     buttons = []
     bot_username = (await client.get_me()).username
+
     for doc in results[:10]:
         try:
             chat_id = doc["chat_id"]
             msg_id = doc["message_id"]
+            file_name = doc.get("file_name", "Unnamed")
+
+            # Skip if essential data missing
+            if not chat_id or not msg_id:
+                continue
+
             encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
             url = f"https://t.me/{bot_username}?start=file_{encoded}"
-            buttons.append([InlineKeyboardButton(doc["file_name"][:30], url=url)])
-        except Exception:
+
+            buttons.append([InlineKeyboardButton(file_name[:30], url=url)])
+
+        except Exception as e:
             continue
+
+    if not buttons:
+        await message.reply("Found matching files, but all had invalid links.")
+        return
 
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
 
