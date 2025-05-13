@@ -70,13 +70,28 @@ async def search_file(client, message: Message):
     buttons = []
     for doc in results[:10]:
         try:
-            chat_id = doc["chat_id"]
-            msg_id = doc["message_id"]
+            chat_id = doc.get("chat_id")
+            msg_id = doc.get("message_id")
+            file_name = doc.get("file_name", "File")
+
+            if not chat_id or not msg_id:
+                continue  # Skip if essential fields are missing
+
             encoded = base64.urlsafe_b64encode(f"{chat_id}_{msg_id}".encode()).decode()
             url = f"https://t.me/{(await client.get_me()).username}?start=file_{encoded}"
-            buttons.append([InlineKeyboardButton(doc["file_name"][:30], url=url)])
-        except Exception:
+
+            # Fallback if filename is missing
+            if not isinstance(file_name, str) or not file_name.strip():
+                file_name = "Unnamed File"
+
+            buttons.append([InlineKeyboardButton(file_name[:30], url=url)])
+        except Exception as e:
+            print(f"Error generating button: {e}")
             continue
+
+    if not buttons:
+        await message.reply("No valid files found.")
+        return
 
     await message.reply("Results found:", reply_markup=InlineKeyboardMarkup(buttons))
 
