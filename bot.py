@@ -73,14 +73,17 @@ async def start_cmd(client, message: Message):
 # Save incoming files from DB_CHANNEL
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
-    if message.caption:
-        file_doc = {
-            "file_name": message.caption.strip().lower(),
-            "chat_id": message.chat.id,
-            "message_id": message.message_id
-        }
-        result = files_col.insert_one(file_doc)
-        print(f"[+] Saved file: {result.inserted_id}")
+    if not message.caption:
+        return
+
+    file_name = message.caption.strip().lower()
+    file_doc = {
+        "file_name": file_name,
+        "chat_id": message.chat.id,
+        "message_id": message.id  # <-- Corrected this line
+    }
+    result = files_col.insert_one(file_doc)
+    print(f"Saved file with ID: {result.inserted_id}")
 
 # Text-based search
 @app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "movie", "delete"]) & ~filters.bot)
