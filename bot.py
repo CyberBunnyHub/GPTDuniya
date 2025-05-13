@@ -153,21 +153,34 @@ async def track_group(client, message: Message):
 
 # /delete command (admin only)
 @app.on_message(filters.command("delete") & filters.group)
-async def delete_file(client, message: Message):
-    member = await client.get_chat_member(message.chat.id, message.from_user.id)
-    if member.status not in ("administrator", "creator"):
-        return await message.reply("❌ Only admins can delete files.")
+async def delete_file_by_id(client, message: Message):
+    try:
+        # Check if user is admin
+        member = await client.get_chat_member(message.chat.id, message.from_user.id)
+        if member.status not in ("administrator", "creator"):
+            return await message.reply("Only group admins can delete files.")
 
-    if len(message.command) < 2:
-        return await message.reply("Usage: /delete <file name>")
+        # Check if file ID is provided
+        if len(message.command) < 2:
+            return await message.reply("Usage: /delete <file_id>")
 
-    file_name = " ".join(message.command[1:]).strip().lower()
-    result = files_col.find_one_and_delete({"file_name": {"$regex": f"^{file_name}$", "$options": "i"}})
+        file_id = message.command[1]
 
-    if result:
-        await message.reply(f"✅ Deleted file: `{result.get('file_name', 'Unknown')}`")
-    else:
-        await message.reply("❌ File not found.")
+        # Try to convert to ObjectId and delete
+        try:
+            result = files_col.find_one_and_delete({"_id": ObjectId(file_id)})
+        except Exception:
+            return await message.reply("Invalid file ID format.")
+
+        if result:
+            await message.reply(f"✅ File deleted: `{result.get('file_name', 'Unknown')}`")
+        else:
+            await message.reply("❌ File not found.")
+
+    except ChatAdminRequired:
+        await message.reply("I need to be an admin to check user roles.")
+    except Exception as e:
+        await message.reply(f"⚠️ Error occurred:\n`{e}`")
 
 print("Bot is starting...")
 app.run()
