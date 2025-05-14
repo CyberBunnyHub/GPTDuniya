@@ -10,7 +10,7 @@ DB_CHANNEL = -1002511163521
 
 # UI Elements
 IMAGE_URLS = [
-    "https://envs.sh/oeA.jpg"
+    "https://ibb.co/zVGqb88W"
 ]
 
 CAPTIONS = [
