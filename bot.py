@@ -92,8 +92,6 @@ async def start_cmd(client, message: Message):
         [InlineKeyboardButton("Hᴇʟᴘ", callback_data="help"), InlineKeyboardButton("Aʙᴏᴜᴛ", callback_data="about")],
         [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL), InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
     ])
-    await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode="HTML")
-
 
 # Bot added to group
 @app.on_message(filters.new_chat_members)
