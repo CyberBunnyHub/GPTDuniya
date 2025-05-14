@@ -121,7 +121,7 @@ async def save_file(client, message: Message):
 
 
 # Search handler
-@app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "movie", "delete"]) & ~filters.bot)
+@app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "delete"]) & ~filters.bot)
 async def search_file(client, message: Message):
     if not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
@@ -131,9 +131,30 @@ async def search_file(client, message: Message):
         return await message.reply("🚫 To use this bot, please join our update channel first.", reply_markup=keyboard)
 
     query = message.text.strip().lower()
+
+    # IMDb lookup
+    movies = imdb_client.search_movie(query)
+    if movies:
+        movie = imdb_client.get_movie(movies[0].movieID)
+        title = movie.get("title", "Unknown Title")
+        year = movie.get("year", "N/A")
+        rating = movie.get("rating", "N/A")
+        genres = ", ".join(movie.get("genres", []))
+        plot = movie.get("plot outline", "No plot available")
+        poster = movie.get("cover url")
+
+        caption = f"**{title} ({year})**\n\n**Rating:** {rating}\n**Genres:** {genres}\n\n**Plot:** {plot}"
+        buttons = [
+            [InlineKeyboardButton("All Languages", callback_data=f"search:0:{query}")],
+            [InlineKeyboardButton("Get All Files", callback_data=f"getall:{query}")]
+        ]
+
+        await message.reply_photo(photo=poster, caption=caption, reply_markup=InlineKeyboardMarkup(buttons))
+
+    # File search
     results = list(files_col.find({"file_name": {"$regex": query, "$options": "i"}}))
     if not results:
-        return await message.reply("❌ No results found.")
+        return  # stay silent if no results
 
     markup = generate_pagination_buttons(results, (await client.get_me()).username, page=0, per_page=5, prefix="search", query=query)
     await message.reply("✅ Results found:", reply_markup=markup)
