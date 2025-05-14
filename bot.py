@@ -164,7 +164,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             "- Add me to a group to enable autofilter."
         )
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("◀️ Back", callback_data="back")]
+            [InlineKeyboardButton("◀️ Back", callback_data="start")]
         ])
         await query.message.edit_text(help_text, reply_markup=keyboard)
         await query.answer()
