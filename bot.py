@@ -4,8 +4,7 @@ from pyrogram.errors import ChatAdminRequired, UserNotParticipant
 from pymongo import MongoClient
 from bson import ObjectId
 import random
-
-# Import configuration
+from imdb import IMDb
 from config import (
     BOT_TOKEN, API_ID, API_HASH, MONGO_URI, DB_CHANNEL,
     IMAGE_URLS, CAPTIONS, UPDATE_CHANNEL, SUPPORT_GROUP
@@ -20,6 +19,9 @@ db = mongo["autofilter"]
 files_col = db["files"]
 users_col = db["users"]
 groups_col = db["groups"]
+
+# IMDb Client
+imdb_client = IMDb()
 
 # Check if user is subscribed
 async def check_subscription(client, user_id):
@@ -236,6 +238,6 @@ async def track_group(client, message: Message):
         {"$set": {"title": message.chat.title}},
         upsert=True
     )
-    
+
 print("Bot is starting...")
 app.run()
