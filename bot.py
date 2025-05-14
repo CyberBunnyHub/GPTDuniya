@@ -79,14 +79,13 @@ async def start_cmd(client, message: Message):
         return
 
     image = random.choice(IMAGE_URLS)
-    caption = random.choice(CAPTIONS)
+    caption = random.choice(CAPTIONS).format(message.from_user.id)
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("➕ Add Me to Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
-        [InlineKeyboardButton("Help", callback_data="help"), InlineKeyboardButton("About", callback_data="about")],
-        [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)],
-        [InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+        [InlineKeyboardButton("Aᴅᴅ Mᴇ Tᴏ Gʀᴏᴜᴘ", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
+        [InlineKeyboardButton("Hᴇʟᴘ", callback_data="help"), InlineKeyboardButton("Aʙᴏᴜᴛ", callback_data="about")],
+        [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL), InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
     ])
-    await message.reply_photo(image, caption=caption, reply_markup=keyboard)
+    await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode="html")
 
 # Welcome message when bot is added to a group
 @app.on_message(filters.new_chat_members)
@@ -188,10 +187,9 @@ async def handle_callbacks(client, query: CallbackQuery):
         image = random.choice(IMAGE_URLS)
         caption = random.choice(CAPTIONS)
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ Add Me to Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
-            [InlineKeyboardButton("Help", callback_data="help"), InlineKeyboardButton("About", callback_data="about")],
-            [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+            [InlineKeyboardButton("Aᴅᴅ Mᴇ Tᴏ Gʀᴏᴜᴘ", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
+            [InlineKeyboardButton("Hᴇʟᴘ", callback_data="help"), InlineKeyboardButton("Aʙᴏᴜᴛ", callback_data="about")],
+            [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL), InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
         ])
         try:
             await query.message.delete()
