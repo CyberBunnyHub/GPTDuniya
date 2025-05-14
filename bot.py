@@ -85,14 +85,15 @@ async def start_cmd(client, message: Message):
             await message.reply(f"❌ Error retrieving file:\n\n`{e}`")
         return
 
-    image = random.choice(IMAGE_URLS)
-caption = random.choice(CAPTIONS).format(message.from_user.id)
-keyboard = InlineKeyboardMarkup([
-    [InlineKeyboardButton("Aᴅᴅ Mᴇ Tᴏ Gʀᴏᴜᴘ", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
-    [InlineKeyboardButton("Hᴇʟᴘ", callback_data="help"), InlineKeyboardButton("Aʙᴏᴜᴛ", callback_data="about")],
-    [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL), InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
-])
-await message.reply_photo(image, caption=caption, reply_markup=keyboard)
+        image = random.choice(IMAGE_URLS)
+    caption = random.choice(CAPTIONS).format(message.from_user.id)
+    bot_username = (await client.get_me()).username
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Aᴅᴅ Mᴇ Tᴏ Gʀᴏᴜᴘ", url=f"https://t.me/{bot_username}?startgroup=true")],
+        [InlineKeyboardButton("Hᴇʟᴘ", callback_data="help"), InlineKeyboardButton("Aʙᴏᴜᴛ", callback_data="about")],
+        [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL), InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
+    ])
+    await message.reply_photo(image, caption=caption, reply_markup=keyboard)
 
 # Bot added to group
 @app.on_message(filters.new_chat_members)
