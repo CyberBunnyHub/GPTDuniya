@@ -86,13 +86,12 @@ async def start_cmd(client, message: Message):
         return
 
     image = random.choice(IMAGE_URLS)
-    caption = random.choice(CAPTIONS).format(message.from_user.id)
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Aᴅᴅ Mᴇ Tᴏ Gʀᴏᴜᴘ", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
-        [InlineKeyboardButton("Hᴇʟᴘ", callback_data="help"), InlineKeyboardButton("Aʙᴏᴜᴛ", callback_data="about")],
-        [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL), InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
-    ])
-print(caption)
+caption = random.choice(CAPTIONS).format(message.from_user.id)
+keyboard = InlineKeyboardMarkup([
+    [InlineKeyboardButton("Aᴅᴅ Mᴇ Tᴏ Gʀᴏᴜᴘ", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
+    [InlineKeyboardButton("Hᴇʟᴘ", callback_data="help"), InlineKeyboardButton("Aʙᴏᴜᴛ", callback_data="about")],
+    [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL), InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
+])
 await message.reply_photo(image, caption=caption, reply_markup=keyboard)
 
 # Bot added to group
