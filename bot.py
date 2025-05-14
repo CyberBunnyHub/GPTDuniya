@@ -165,8 +165,6 @@ async def handle_callbacks(client, query: CallbackQuery):
             "- Add me to a group to enable autofilter."
         )
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Support", url=SUPPORT_GROUP)],
             [InlineKeyboardButton("◀️ Back", callback_data="back")]
         ])
         await query.message.edit_text(help_text, reply_markup=keyboard)
@@ -181,8 +179,6 @@ async def handle_callbacks(client, query: CallbackQuery):
             "- Supports deep linking and inline buttons"
         )
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Support", url=SUPPORT_GROUP)],
             [InlineKeyboardButton("◀️ Back", callback_data="back")]
         ])
         await query.message.edit_text(about_text, reply_markup=keyboard)
