@@ -139,18 +139,6 @@ async def search_file(client, message: Message):
     markup = generate_pagination_buttons(results, (await client.get_me()).username, page=0, per_page=5, prefix="search", query=query)
     await message.reply("✅ Results found:", reply_markup=markup)
 
-
-# /movie command (deprecated if using IMDb in search instead)
-@app.on_message(filters.command("movie") & filters.group)
-async def send_movie_list(client, message: Message):
-    results = list(files_col.find())
-    if not results:
-        return await message.reply("❌ No movies found.")
-
-    markup = generate_pagination_buttons(results, (await client.get_me()).username, page=0, per_page=5, prefix="movie")
-    await message.reply("Choose a movie:", reply_markup=markup)
-
-
 # Callback queries
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
