@@ -3,11 +3,13 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, 
 from pyrogram.errors import ChatAdminRequired, UserNotParticipant
 from pymongo import MongoClient
 from bson import ObjectId
-import random
 from imdb import IMDb
+import random
+
 from config import (
-    BOT_TOKEN, API_ID, API_HASH, MONGO_URI, DB_CHANNEL,
-    IMAGE_URLS, CAPTIONS, UPDATE_CHANNEL, SUPPORT_GROUP
+    BOT_TOKEN, API_ID, API_HASH, MONGO_URI,
+    DB_CHANNEL, IMAGE_URLS, CAPTIONS,
+    UPDATE_CHANNEL, SUPPORT_GROUP
 )
 
 # Initialize bot
@@ -20,10 +22,11 @@ files_col = db["files"]
 users_col = db["users"]
 groups_col = db["groups"]
 
-# IMDb Client
+# IMDb client
 imdb_client = IMDb()
 
-# Check if user is subscribed
+
+# Check subscription
 async def check_subscription(client, user_id):
     try:
         member = await client.get_chat_member(UPDATE_CHANNEL, user_id)
@@ -31,7 +34,8 @@ async def check_subscription(client, user_id):
     except UserNotParticipant:
         return False
     except Exception:
-        return True  # In case of error, assume subscribed
+        return True
+
 
 # Generate pagination buttons
 def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query=""):
@@ -41,8 +45,10 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
     page_data = results[start:end]
 
     buttons = [
-        [InlineKeyboardButton(f"🎬 {doc.get('file_name', 'Unnamed')[:30]}", url=f"https://t.me/{bot_username}?start={doc['_id']}")]
-        for doc in page_data
+        [InlineKeyboardButton(
+            f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
+            url=f"https://t.me/{bot_username}?start={doc['_id']}"
+        )] for doc in page_data
     ]
 
     nav_buttons = []
@@ -56,6 +62,7 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
         buttons.append(nav_buttons)
 
     return InlineKeyboardMarkup(buttons)
+
 
 # /start command
 @app.on_message(filters.command("start") & filters.private)
@@ -87,7 +94,8 @@ async def start_cmd(client, message: Message):
     ])
     await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode="html")
 
-# Welcome message when bot is added to a group
+
+# Bot added to group
 @app.on_message(filters.new_chat_members)
 async def welcome_new_members(client, message: Message):
     for member in message.new_chat_members:
@@ -97,7 +105,8 @@ async def welcome_new_members(client, message: Message):
             ])
             await message.reply("Thank you for adding me to your group!", reply_markup=keyboard)
 
-# Save files in DB_CHANNEL
+
+# Save files from DB_CHANNEL
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
     if not message.caption:
@@ -111,7 +120,8 @@ async def save_file(client, message: Message):
     result = files_col.insert_one(file_doc)
     print(f"Saved file with ID: {result.inserted_id}")
 
-# Text search
+
+# Search handler
 @app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "movie", "delete"]) & ~filters.bot)
 async def search_file(client, message: Message):
     if not await check_subscription(client, message.from_user.id):
@@ -123,23 +133,25 @@ async def search_file(client, message: Message):
 
     query = message.text.strip().lower()
     results = list(files_col.find({"file_name": {"$regex": query, "$options": "i"}}))
-
     if not results:
         return await message.reply("❌ No results found.")
 
     markup = generate_pagination_buttons(results, (await client.get_me()).username, page=0, per_page=5, prefix="search", query=query)
     await message.reply("✅ Results found:", reply_markup=markup)
 
-# /movie command
+
+# /movie command (deprecated if using IMDb in search instead)
 @app.on_message(filters.command("movie") & filters.group)
 async def send_movie_list(client, message: Message):
     results = list(files_col.find())
     if not results:
         return await message.reply("❌ No movies found.")
+
     markup = generate_pagination_buttons(results, (await client.get_me()).username, page=0, per_page=5, prefix="movie")
     await message.reply("Choose a movie:", reply_markup=markup)
 
-# Callback query handler
+
+# Callback queries
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
@@ -163,9 +175,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             "- Admins can use /delete <file_id> to remove files.\n"
             "- Add me to a group to enable autofilter."
         )
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("◀️ Back", callback_data="start")]
-        ])
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="start")]])
         await query.message.edit_text(help_text, reply_markup=keyboard)
         await query.answer()
 
@@ -177,9 +187,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             "- Auto-filter and private file delivery\n"
             "- Supports deep linking and inline buttons"
         )
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("◀️ Back", callback_data="back")]
-        ])
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="back")]])
         await query.message.edit_text(about_text, reply_markup=keyboard)
         await query.answer()
 
@@ -207,6 +215,7 @@ async def handle_callbacks(client, query: CallbackQuery):
     elif data == "noop":
         await query.answer()
 
+
 # /stats command
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
@@ -216,7 +225,8 @@ async def stats(client, message: Message):
     text = f"**Bot Stats:**\n\n**Users:** {users}\n**Groups:** {groups}\n**Total Files:** {files}"
     await message.reply(text)
 
-# Track users and groups
+
+# Track users
 @app.on_message(filters.private & filters.text)
 async def track_user(client, message: Message):
     users_col.update_one(
@@ -225,6 +235,8 @@ async def track_user(client, message: Message):
         upsert=True
     )
 
+
+# Track groups
 @app.on_message(filters.group & filters.text)
 async def track_group(client, message: Message):
     groups_col.update_one(
@@ -232,6 +244,7 @@ async def track_group(client, message: Message):
         {"$set": {"title": message.chat.title}},
         upsert=True
     )
+
 
 print("Bot is starting...")
 app.run()
