@@ -15,8 +15,8 @@ IMAGE_URLS = [
 ]
 
 CAPTIONS = [
-    """<blockquote> Hᴇʟʟᴏ {user_mention} 👋,</blockquote>\n
-I'ᴍ Lᴀᴛᴇꜱᴛ Aᴅᴠᴀɴᴄᴇᴅ & Pᴏᴡᴇʀꜰᴜʟ Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ. Yᴏᴜ Cᴀɴ Uꜱᴇ Mᴇ Tᴏ Gᴇᴛ Mᴏᴠɪᴇs [Jᴜsᴛ Sᴇɴᴅ Mᴇ Mᴏᴠɪᴇ Nᴀᴍᴇ] Oʀ Yᴏᴜ Cᴀɴ Aᴅᴅ Mᴇ Tᴏ Yᴏᴜʀ Gʀᴏᴜᴘ & Mᴀɢɪᴄ Hᴀᴘᴘᴇɴs!."""
+    """<blockquote>Hᴇʟʟᴏ {user_mention} 👋,</blockquote>\n
+I'ᴍ Lᴀᴛᴇꜱᴛ Aᴅᴠᴀɴᴄᴇᴅ & Pᴏᴡᴇʀꜰᴜʟ Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ. Yᴏᴜ Cᴀɴ Uꜱᴇ Mᴇ Tᴏ Gᴇᴛ Mᴏᴠɪᴇs🍿 [Jᴜsᴛ Sᴇɴᴅ Mᴇ Mᴏᴠɪᴇ Nᴀᴍᴇ] Oʀ Yᴏᴜ Cᴀɴ Aᴅᴅ Mᴇ Tᴏ Yᴏᴜʀ Gʀᴏᴜᴘ & Mᴀɢɪᴄ Hᴀᴘᴘᴇɴs!."""
 ]
 
 # Support Links
