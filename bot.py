@@ -67,12 +67,14 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
 # /start command
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
-    image = "https://example.com/default.jpg"  # default image
-    caption = "Welcome!"
+    image = "https://ibb.co/zVGqb88W"  # default image
+    caption = """<blockquote>Hᴇʟʟᴏ <a href='tg://user?id={}'>👋</a>,</blockquote>\n
+I'ᴍ Lᴀᴛᴇꜱᴛ Aᴅᴠᴀɴᴄᴇᴅ & Pᴏᴡᴇʀꜰᴜʟ Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ. Yᴏᴜ Cᴀɴ Uꜱᴇ Mᴇ Tᴏ Gᴇᴛ Mᴏᴠɪᴇs [Jᴜsᴛ Sᴇɴᴅ Mᴇ Mᴏᴠɪᴇ Nᴀᴍᴇ] Oʀ Yᴏᴜ Cᴀɴ Aᴅᴅ Mᴇ Tᴏ Yᴏᴜʀ Gʀᴏᴜᴘ & Mᴀɢɪᴄ Hᴀᴘᴘᴇɴs!."""
 
     if some_condition:
-        image = "https://example.com/specific.jpg"
-        caption = "Special welcome!"
+        image = "https://ibb.co/zVGqb88W"
+        caption = """<blockquote>Hᴇʟʟᴏ <a href='tg://user?id={}'>👋</a>,</blockquote>\n
+I'ᴍ Lᴀᴛᴇꜱᴛ Aᴅᴠᴀɴᴄᴇᴅ & Pᴏᴡᴇʀꜰᴜʟ Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ. Yᴏᴜ Cᴀɴ Uꜱᴇ Mᴇ Tᴏ Gᴇᴛ Mᴏᴠɪᴇs [Jᴜsᴛ Sᴇɴᴅ Mᴇ Mᴏᴠɪᴇ Nᴀᴍᴇ] Oʀ Yᴏᴜ Cᴀɴ Aᴅᴅ Mᴇ Tᴏ Yᴏᴜʀ Gʀᴏᴜᴘ & Mᴀɢɪᴄ Hᴀᴘᴘᴇɴs!."""
 
     await message.reply_photo(image, caption=caption)
 
