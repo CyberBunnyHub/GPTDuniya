@@ -155,24 +155,20 @@ async def handle_callbacks(client, query: CallbackQuery):
 
     elif data == "help":
         help_text = (
-            "**Help Menu:**\n\n"
-            "- Send a movie name to search.\n"
-            "- Use /movie to browse files.\n"
-            "- Admins can use /delete <file_id> to remove files.\n"
-            "- Add me to a group to enable autofilter."
+           "Wᴇʟᴄᴏᴍᴇ! Tᴏ Mʏ Sᴛᴏʀᴇ"
         )
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="back")]])
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(("</Bᴀᴄᴋ>", callback_data="back")]])
         await query.message.edit_text(help_text, reply_markup=keyboard)
         await query.answer()
 
     elif data == "about":
         about_text = (
-            "- - - - - - 🍿Aʙᴏᴜᴛ Mᴇh - - - - - - 
+            """- - - - - - 🍿Aʙᴏᴜᴛ Mᴇh - - - - - - 
 
 -ˋˏ✄- - Iᴍ Aɴ <a href='https://tg.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a> 
 -ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
 -ˋˏ✄- - DᴀᴛᴀBᴀsᴇ : <a href='https://www.mongodb.com/'>Mᴏɴɢᴏ Dʙ</a>
--ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>"
+-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>"""
 )
         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]])
         await query.message.edit_text(about_text, reply_markup=keyboard)
