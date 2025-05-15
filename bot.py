@@ -6,6 +6,7 @@ from bson import ObjectId
 from pyrogram.enums import ParseMode
 import random
 from pyrogram.types import InputMediaPhoto
+from urllib.parse import quote_plus, unquote_plus
 
 from config import (
     BOT_TOKEN, API_ID, API_HASH, MONGO_URI,
@@ -25,9 +26,12 @@ groups_col = db["groups"]
 
 # Check subscription
 async def check_subscription(client, user_id):
-    try:
-        member = await client.get_chat_member(UPDATE_CHANNEL, user_id)
-        return member.status in ["member", "administrator", "creator"]
+is_admin = False
+try:
+    member = await client.get_chat_member(message.chat.id, message.from_user.id)
+    is_admin = member.status in ["administrator", "creator"]
+except:
+    pass
     except UserNotParticipant:
         return False
     except Exception:
@@ -126,7 +130,7 @@ async def save_file(client, message: Message):
     file_doc = {
     "file_name": file_name,
     "chat_id": message.chat.id,
-    "message_id": message.id,
+    "message_id": message.message_id,
     "language": "English"  
     }
     
@@ -249,15 +253,15 @@ elif data.startswith("filterlang:"):
     await query.answer()
 
 elif data.startswith("getfiles:"):
-    parts = data.split(":", 2)
+    parts = data.split(":", maxsplit=2)
     query_text = parts[1]
-    lang = parts[2] if len(parts) == 3 else None
+    lang = parts[2] if len(parts) > 2 else None
 
     search_filter = {
         "file_name": {"$regex": query_text, "$options": "i"}
     }
     if lang:
-        search_filter["lang"] = lang
+    search_filter["language"] = lang
 
     results = list(files_col.find(search_filter))
     if not results:
@@ -275,6 +279,16 @@ elif data.startswith("getfiles:"):
             continue
 
     await query.answer(f"✅ Sent files{' in ' + lang if lang else ''}.")
+
+elif data.startswith("deletefile:"):
+    file_id = data.split(":")[1]
+    result = files_col.find_one({"_id": ObjectId(file_id)})
+    if result:
+        files_col.delete_one({"_id": ObjectId(file_id)})
+        await query.answer("✅ File deleted.")
+        await query.message.delete()
+    else:
+        await query.answer("❌ File not found.", show_alert=True)
 
 # /stats command
 @app.on_message(filters.command("stats"))
