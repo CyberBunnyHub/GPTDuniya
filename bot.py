@@ -99,7 +99,7 @@ async def welcome_new_members(client, message: Message):
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL), InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
     ])
-            await message.reply("TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇh Tᴏ Yᴏᴜʀ Gʀᴏᴜᴘ , Lᴇᴛs Sᴛᴀʀᴛ Tʜᴇ Gᴀᴍᴇ...😂", reply_markup=keyboard)
+            await message.reply("TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇh Tᴏ Yᴏᴜʀ Gʀᴏᴜᴘ <a href="{group_link}">{chat_title}</a> , Lᴇᴛs Sᴛᴀʀᴛ Tʜᴇ Gᴀᴍᴇ...😂", reply_markup=keyboard)
 
 
 # Save files from DB_CHANNEL
@@ -157,7 +157,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         help_text = (
            "Wᴇʟᴄᴏᴍᴇ! Tᴏ Mʏ Sᴛᴏʀᴇ"
         )
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(("</Bᴀᴄᴋ>", callback_data="back")]])
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]])
         await query.message.edit_text(help_text, reply_markup=keyboard)
         await query.answer()
 
