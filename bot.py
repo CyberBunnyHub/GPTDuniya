@@ -64,7 +64,7 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
     image = random.choice(IMAGE_URLS)
-    caption = random.choice(CAPTIONS).format(message.from_user.id)
+    caption = random.choice(CAPTIONS).format(user_mention=user_mention)
 
     if not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
