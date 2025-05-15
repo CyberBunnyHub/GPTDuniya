@@ -66,6 +66,7 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
 
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
+    emoji_msg = await message.reply("🍿")
     image = random.choice(IMAGE_URLS)
     user_mention = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
     caption = random.choice(CAPTIONS).format(user_mention=user_mention)
@@ -94,7 +95,9 @@ async def start_cmd(client, message: Message):
         [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL), InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
     ])
     await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-
+    await asyncio.sleep(4)
+    await emoji_msg.delete()
+    
 @app.on_message(filters.new_chat_members)
 async def welcome_new_members(client, message: Message):
     for member in message.new_chat_members:
