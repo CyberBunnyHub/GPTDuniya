@@ -97,11 +97,18 @@ async def start_cmd(client, message: Message):
 async def welcome_new_members(client, message: Message):
     for member in message.new_chat_members:
         if member.id == (await client.get_me()).id:
-            keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL), InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
-    ])
-            await message.reply(f'TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇh Tᴏ Yᴏᴜʀ Gʀᴏᴜᴘ <a href="{group_link}">{chat_title}</a> , Lᴇᴛs Sᴛᴀʀᴛ Tʜᴇ Gᴀᴍᴇ...😂', reply_markup=keyboard)
+            group_title = message.chat.title
+            group_link = f"https://t.me/{message.chat.username}" if message.chat.username else "this group"
 
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL),
+                 InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
+            ])
+            text = (
+                f'TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇh Tᴏ <a href="{group_link}">{group_title}</a>!\n'
+                'Lᴇᴛs Sᴛᴀʀᴛ Tʜᴇ Gᴀᴍᴇ...😂'
+            )
+            await message.reply(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
 # Save files from DB_CHANNEL
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
@@ -175,7 +182,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         await query.message.edit_text(about_text, reply_markup=keyboard)
         await query.answer()
 
-    elif data == "back":
+        elif data == "back":
         image = random.choice(IMAGE_URLS)
         caption = random.choice(CAPTIONS)
         keyboard = InlineKeyboardMarkup([
