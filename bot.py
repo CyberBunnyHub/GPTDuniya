@@ -106,8 +106,8 @@ async def welcome_new_members(client, message: Message):
                  InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
             ])
             text = (
-                f'TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇh Tᴏ <a href="{group_link}">{group_title}</a>!\n'
-                'Lᴇᴛs Sᴛᴀʀᴛ Tʜᴇ Gᴀᴍᴇ...😂'
+   f'TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇh Tᴏ <a herf ='{group_link}'>'{group_title}'</a>
+Lᴇᴛs Sᴛᴀʀᴛ Tʜᴇ Gᴀᴍᴇ...😂'
             )
             await message.reply(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
@@ -152,13 +152,18 @@ async def handle_callbacks(client, query: CallbackQuery):
         results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
         markup = generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)
         try:
-            await query.message.edit_text("✅ Results found:", reply_markup=markup)
+            await message.reply(
+    f"<blockquote>Hᴇʟʟᴏ! <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\n"
+    f"🎁Hᴇʀᴇ I Fᴏᴜɴᴅ Fᴏʀ Yᴏᴜʀ Sᴇᴀʀᴄʜ <code>{message.text.strip()}</code>",
+    reply_markup=markup,
+    parse_mode=ParseMode.HTML
+            )
         except:
             pass
         return await query.answer()
 
     elif data == "help":
-        await query.message.edit_text("Wᴇʟᴄᴏᴍᴇ! Tᴏ Mʏ Sᴛᴏʀᴇ", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]]))
+        await query.message.edit_text("""Wᴇʟᴄᴏᴍᴇ! Tᴏ Mʏ Sᴛᴏʀᴇ\n\n<blockquote>Nᴏᴛᴇ: Uɴᴅᴇʀ Cᴏɴsᴛʀᴜᴄᴛɪᴏɴ 🚧</blockquote>""", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]]))
         return await query.answer()
 
     elif data == "about":
@@ -167,11 +172,12 @@ async def handle_callbacks(client, query: CallbackQuery):
             f"""- - - - - - 🍿Aʙᴏᴜᴛ Mᴇʜ - - - - - -
 
 -ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
--ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
+-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & 
+-ˋˏ✄- - <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
 -ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
 -ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>"""
         )
-        await query.message.edit_text(about_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]]), parse_mode=ParseMode.HTML)
+        await query.message.edit_text(about_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Dᴇᴠ", url="t.me/GandhiNote", InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]]), parse_mode=ParseMode.HTML)
         return await query.answer()
 
     elif data == "back":
@@ -254,7 +260,7 @@ async def stats(client, message: Message):
     users = users_col.count_documents({})
     groups = groups_col.count_documents({})
     files = files_col.count_documents({})
-    await message.reply(f"**Bot Stats:**\n\n**Users:** {users}\n**Groups:** {groups}\n**Total Files:** {files}")
+    await message.reply(f"- - - - - - 🍿Bᴏᴛ Sᴛᴀᴛs - - - - - --\nˋˏ✄- Tᴏᴛᴀʟ Usᴇʀs: {users}\n-ˋˏ✄- Tᴏᴛᴀʟ Cʜᴀᴛs: {groups}\n-ˋˏ✄- Tᴏᴛᴀʟ Fɪʟᴇs: {files}")
 
 @app.on_message(filters.private & filters.text)
 async def track_user(client, message: Message):
