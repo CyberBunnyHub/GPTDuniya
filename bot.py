@@ -67,6 +67,15 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
 # /start command
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
+    image = "https://example.com/default.jpg"  # default image
+    caption = "Welcome!"
+
+    if some_condition:
+        image = "https://example.com/specific.jpg"
+        caption = "Special welcome!"
+
+    await message.reply_photo(image, caption=caption)
+
     if not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Join Update Channel", url=f"https://t.me/{UPDATE_CHANNEL.lstrip('@')}")],
