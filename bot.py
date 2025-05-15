@@ -5,6 +5,7 @@ from pymongo import MongoClient
 from bson import ObjectId
 from pyrogram.enums import ParseMode
 import random
+from pyrogram.types import InputMediaPhoto
 
 from config import (
     BOT_TOKEN, API_ID, API_HASH, MONGO_URI,
@@ -162,30 +163,28 @@ async def handle_callbacks(client, query: CallbackQuery):
         await query.answer()
 
     elif data == "help":
-        help_text = (
-           "Wᴇʟᴄᴏᴍᴇ! Tᴏ Mʏ Sᴛᴏʀᴇ"
-        )
+        help_text = "Wᴇʟᴄᴏᴍᴇ! Tᴏ Mʏ Sᴛᴏʀᴇ"
         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]])
         await query.message.edit_text(help_text, reply_markup=keyboard)
         await query.answer()
 
-        elif data == "about":
+    elif data == "about":
+        bot_username = (await client.get_me()).username
         about_text = (
-            f"""- - - - - - 🍿Aʙᴏᴜᴛ Mᴇʜ - - - - - - 
+            f"""- - - - - - 🍿Aʙᴏᴜᴛ Mᴇʜ - - - - - -
 
--ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{(await client.get_me()).username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a> 
+-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
 -ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
--ˋˏ✄- - DᴀᴛᴀBᴀsᴇ : <a href='https://www.mongodb.com/'>Mᴏɴɢᴏ Dʙ</a>
+-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
 -ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>"""
         )
         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]])
-        await query.message.edit_text(about_text, reply_markup=keyboard)
+        await query.message.edit_text(about_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
         await query.answer()
 
-        elif data == "back":
+    elif data == "back":
         image = random.choice(IMAGE_URLS)
-        user_mention = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
-        caption = random.choice(CAPTIONS)
+        caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Aᴅᴅ Mᴇ Tᴏ Gʀᴏᴜᴘ", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
             [InlineKeyboardButton("Hᴇʟᴘ", callback_data="help"), InlineKeyboardButton("Aʙᴏᴜᴛ", callback_data="about")],
@@ -193,18 +192,12 @@ async def handle_callbacks(client, query: CallbackQuery):
         ])
         try:
             await query.message.edit_media(
-                media=image,
-                reply_markup=keyboard,
-                caption=caption,
-                parse_mode=ParseMode.HTML
+                media=InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML),
+                reply_markup=keyboard
             )
         except Exception:
             try:
-                await query.message.edit_caption(
-                    caption=caption,
-                    reply_markup=keyboard,
-                    parse_mode=ParseMode.HTML
-                )
+                await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
             except Exception:
                 pass
         await query.answer()
@@ -217,7 +210,6 @@ async def handle_callbacks(client, query: CallbackQuery):
 
     elif data == "noop":
         await query.answer()
-
 
 # /stats command
 @app.on_message(filters.command("stats"))
