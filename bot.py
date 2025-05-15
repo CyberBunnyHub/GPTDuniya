@@ -169,17 +169,15 @@ async def handle_callbacks(client, query: CallbackQuery):
         await query.message.edit_text(help_text, reply_markup=keyboard)
         await query.answer()
 
-    elif data == "about":
+        elif data == "about":
         about_text = (
-            """- - - - - - 🍿Aʙᴏᴜᴛ Mᴇh - - - - - - 
+            f"""- - - - - - 🍿Aʙᴏᴜᴛ Mᴇʜ - - - - - - 
 
--ˋˏ✄- - Iᴍ Aɴ <a href='https://tg.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a> 
+-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{(await client.get_me()).username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a> 
 -ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
 -ˋˏ✄- - DᴀᴛᴀBᴀsᴇ : <a href='https://www.mongodb.com/'>Mᴏɴɢᴏ Dʙ</a>
 -ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>"""
-    )
-
-        
+        )
         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]])
         await query.message.edit_text(about_text, reply_markup=keyboard)
         await query.answer()
