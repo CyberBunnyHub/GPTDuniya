@@ -184,6 +184,7 @@ async def handle_callbacks(client, query: CallbackQuery):
 
         elif data == "back":
         image = random.choice(IMAGE_URLS)
+        user_mention = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
         caption = random.choice(CAPTIONS)
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Aᴅᴅ Mᴇ Tᴏ Gʀᴏᴜᴘ", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
@@ -191,10 +192,21 @@ async def handle_callbacks(client, query: CallbackQuery):
             [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL), InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
         ])
         try:
-            await query.message.delete()
-            await query.message.reply_photo(image, caption=caption, reply_markup=keyboard)
+            await query.message.edit_media(
+                media=image,
+                reply_markup=keyboard,
+                caption=caption,
+                parse_mode=ParseMode.HTML
+            )
         except Exception:
-            await query.message.edit_caption(caption, reply_markup=keyboard)
+            try:
+                await query.message.edit_caption(
+                    caption=caption,
+                    reply_markup=keyboard,
+                    parse_mode=ParseMode.HTML
+                )
+            except Exception:
+                pass
         await query.answer()
 
     elif data == "checksub":
