@@ -41,15 +41,18 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
     end = start + per_page
     page_data = results[start:end]
 
-    buttons = []
-    for doc in page_data:
-        file_id = str(doc['_id'])
-        file_name = doc.get('file_name', 'Unnamed')[:30]
+    buttons = [
+        [InlineKeyboardButton(
+            f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
+            url=f"https://t.me/{bot_username}?start={doc['_id']}"
+        )] for doc in page_data
+    ]
+
+    # Add Get All & Language Buttons
+    if results:
         buttons.append([
-            InlineKeyboardButton(f"🎬 {file_name}", url=f"https://t.me/{bot_username}?start={file_id}")
-        ])
-        buttons.append([
-            InlineKeyboardButton("🌐 Language", callback_data=f"langs:{query}:{file_id}")
+            InlineKeyboardButton("📂 Get All Files", callback_data=f"getfiles:{query}"),
+            InlineKeyboardButton("🌐 Language", callback_data=f"langs:{query}:dummy")
         ])
 
     nav_buttons = []
@@ -244,6 +247,34 @@ elif data.startswith("filterlang:"):
     markup = generate_pagination_buttons(results, (await client.get_me()).username, page=0, per_page=5, prefix="search", query=query_text)
     await query.message.edit_text(f"Results in {lang}:", reply_markup=markup)
     await query.answer()
+
+elif data.startswith("getfiles:"):
+    parts = data.split(":", 2)
+    query_text = parts[1]
+    lang = parts[2] if len(parts) == 3 else None
+
+    search_filter = {
+        "file_name": {"$regex": query_text, "$options": "i"}
+    }
+    if lang:
+        search_filter["lang"] = lang
+
+    results = list(files_col.find(search_filter))
+    if not results:
+        await query.answer("❌ No files found.", show_alert=True)
+        return
+
+    for doc in results:
+        try:
+            await client.copy_message(
+                chat_id=query.message.chat.id,
+                from_chat_id=doc["chat_id"],
+                message_id=doc["message_id"]
+            )
+        except Exception:
+            continue
+
+    await query.answer(f"✅ Sent files{' in ' + lang if lang else ''}.")
 
 # /stats command
 @app.on_message(filters.command("stats"))
