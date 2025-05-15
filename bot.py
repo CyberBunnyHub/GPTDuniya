@@ -4,7 +4,6 @@ from pyrogram.errors import ChatAdminRequired, UserNotParticipant
 from pymongo import MongoClient
 from bson import ObjectId
 from pyrogram.enums import ParseMode
-from imdb import IMDb
 import random
 
 from config import (
@@ -22,10 +21,6 @@ db = mongo["autofilter"]
 files_col = db["files"]
 users_col = db["users"]
 groups_col = db["groups"]
-
-# IMDb client
-imdb_client = IMDb()
-
 
 # Check subscription
 async def check_subscription(client, user_id):
@@ -102,9 +97,9 @@ async def welcome_new_members(client, message: Message):
     for member in message.new_chat_members:
         if member.id == (await client.get_me()).id:
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("Help", callback_data="help"), InlineKeyboardButton("About", callback_data="about")]
-            ])
-            await message.reply("Thank you for adding me to your group!", reply_markup=keyboard)
+                [InlineKeyboardButton("Uᴘᴅᴀᴛᴇs", url=UPDATE_CHANNEL), InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
+    ])
+            await message.reply("TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇh Tᴏ Yᴏᴜʀ Gʀᴏᴜᴘ , Lᴇᴛs Sᴛᴀʀᴛ Tʜᴇ Gᴀᴍᴇ...😂", reply_markup=keyboard)
 
 
 # Save files from DB_CHANNEL
@@ -133,26 +128,7 @@ async def search_file(client, message: Message):
         return await message.reply("🚫 To use this bot, please join our update channel first.", reply_markup=keyboard)
 
     query = message.text.strip().lower()
-
-    # IMDb lookup
-    movies = imdb_client.search_movie(query)
-    if movies:
-        movie = imdb_client.get_movie(movies[0].movieID)
-        title = movie.get("title", "Unknown Title")
-        year = movie.get("year", "N/A")
-        rating = movie.get("rating", "N/A")
-        genres = ", ".join(movie.get("genres", []))
-        plot = movie.get("plot outline", "No plot available")
-        poster = movie.get("cover url")
-
-        caption = f"**{title} ({year})**\n\n**Rating:** {rating}\n**Genres:** {genres}\n\n**Plot:** {plot}"
-        buttons = [
-            [InlineKeyboardButton("All Languages", callback_data=f"search:0:{query}")],
-            [InlineKeyboardButton("Get All Files", callback_data=f"getall:{query}")]
-        ]
-
-        await message.reply_photo(photo=poster, caption=caption, reply_markup=InlineKeyboardMarkup(buttons))
-
+    
     # File search
     results = list(files_col.find({"file_name": {"$regex": query, "$options": "i"}}))
     if not results:
@@ -185,19 +161,20 @@ async def handle_callbacks(client, query: CallbackQuery):
             "- Admins can use /delete <file_id> to remove files.\n"
             "- Add me to a group to enable autofilter."
         )
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="start")]])
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="back")]])
         await query.message.edit_text(help_text, reply_markup=keyboard)
         await query.answer()
 
     elif data == "about":
         about_text = (
-            "**About Bot:**\n\n"
-            "- Built with Python & Pyrogram\n"
-            "- Uses MongoDB for storage\n"
-            "- Auto-filter and private file delivery\n"
-            "- Supports deep linking and inline buttons"
-        )
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Back", callback_data="back")]])
+            "- - - - - - 🍿Aʙᴏᴜᴛ Mᴇh - - - - - - 
+
+-ˋˏ✄- - Iᴍ Aɴ <a href='https://tg.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a> 
+-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
+-ˋˏ✄- - DᴀᴛᴀBᴀsᴇ : <a href='https://www.mongodb.com/'>Mᴏɴɢᴏ Dʙ</a>
+-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>"
+)
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]])
         await query.message.edit_text(about_text, reply_markup=keyboard)
         await query.answer()
 
