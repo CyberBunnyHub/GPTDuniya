@@ -41,12 +41,16 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
     end = start + per_page
     page_data = results[start:end]
 
-    buttons = [
-        [InlineKeyboardButton(
-            f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
-            url=f"https://t.me/{bot_username}?start={doc['_id']}"
-        )] for doc in page_data
-    ]
+    buttons = []
+    for doc in page_data:
+        file_id = str(doc['_id'])
+        file_name = doc.get('file_name', 'Unnamed')[:30]
+        buttons.append([
+            InlineKeyboardButton(f"🎬 {file_name}", url=f"https://t.me/{bot_username}?start={file_id}")
+        ])
+        buttons.append([
+            InlineKeyboardButton("🌐 Language", callback_data=f"langs:{query}:{file_id}")
+        ])
 
     nav_buttons = []
     if page > 0:
@@ -59,7 +63,6 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
         buttons.append(nav_buttons)
 
     return InlineKeyboardMarkup(buttons)
-
 
 # /start command
 @app.on_message(filters.command("start") & filters.private)
@@ -118,13 +121,14 @@ async def save_file(client, message: Message):
         return
     file_name = message.caption.strip().lower()
     file_doc = {
-        "file_name": file_name,
-        "chat_id": message.chat.id,
-        "message_id": message.id
+    "file_name": file_name,
+    "chat_id": message.chat.id,
+    "message_id": message.id,
+    "language": "English"  
     }
+    
     result = files_col.insert_one(file_doc)
     print(f"Saved file with ID: {result.inserted_id}")
-
 
 # Search handler
 @app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "delete"]) & ~filters.bot)
@@ -210,6 +214,36 @@ async def handle_callbacks(client, query: CallbackQuery):
 
     elif data == "noop":
         await query.answer()
+
+elif data.startswith("langs:"):
+    _, query_text, file_id = data.split(":", 2)
+    results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
+    langs = sorted(set([doc.get("language", "Unknown") for doc in results]))
+    
+    if not langs:
+        await query.answer("No languages found!", show_alert=True)
+        return
+
+    lang_buttons = [
+        [InlineKeyboardButton(lang, callback_data=f"filterlang:{query_text}:{lang}")]
+        for lang in langs
+    ]
+    await query.message.edit_text("Select language:", reply_markup=InlineKeyboardMarkup(lang_buttons))
+    await query.answer()
+
+elif data.startswith("filterlang:"):
+    _, query_text, lang = data.split(":", 2)
+    results = list(files_col.find({
+        "file_name": {"$regex": query_text, "$options": "i"},
+        "language": lang
+    }))
+    if not results:
+        await query.message.edit_text("No results in this language.")
+        return
+
+    markup = generate_pagination_buttons(results, (await client.get_me()).username, page=0, per_page=5, prefix="search", query=query_text)
+    await query.message.edit_text(f"Results in {lang}:", reply_markup=markup)
+    await query.answer()
 
 # /stats command
 @app.on_message(filters.command("stats"))
