@@ -43,21 +43,21 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
             url=f"https://t.me/{bot_username}?start={doc['_id']}"
         )]
         if user_id == BOT_OWNER:
-            row.append(InlineKeyboardButton("❌", callback_data=f"deletefile:{doc['_id']}"))
+            row.append(InlineKeyboardButton("✘", callback_data=f"deletefile:{doc['_id']}"))
         buttons.append(row)
 
     if results:
         buttons.append([
-            InlineKeyboardButton("📂 Get All Files", callback_data=f"getfiles:{query}"),
-            InlineKeyboardButton("🌐 Language", callback_data=f"langs:{query}:dummy")
+            InlineKeyboardButton("Gᴇᴛ Aʟʟ Fɪʟᴇs", callback_data=f"getfiles:{query}"),
+            InlineKeyboardButton("Lᴀɴɢᴜᴀɢᴇs", callback_data=f"langs:{query}:dummy")
         ])
 
     nav_buttons = []
     if page > 0:
-        nav_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"{prefix}:{page - 1}:{query}"))
+        nav_buttons.append(InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"{prefix}:{page - 1}:{query}"))
     nav_buttons.append(InlineKeyboardButton(f"Page {page + 1}/{total_pages}", callback_data="noop"))
     if end < len(results):
-        nav_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=f"{prefix}:{page + 1}:{query}"))
+        nav_buttons.append(InlineKeyboardButton("</Nᴇxᴛ>", callback_data=f"{prefix}:{page + 1}:{query}"))
 
     if nav_buttons:
         buttons.append(nav_buttons)
@@ -143,8 +143,13 @@ async def search_file(client, message: Message):
         return
 
     markup = generate_pagination_buttons(results, (await client.get_me()).username, page=0, per_page=5, prefix="search", query=query, user_id=message.from_user.id)
-    await message.reply("✅ Results found:", reply_markup=markup)
-
+                await message.reply(
+    f"<blockquote>Hᴇʟʟᴏ! <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\n"
+    f"🎁Hᴇʀᴇ I Fᴏᴜɴᴅ Fᴏʀ Yᴏᴜʀ Sᴇᴀʀᴄʜ <code>{message.text.strip()}</code>",
+    reply_markup=markup,
+    parse_mode=ParseMode.HTML
+            )
+            
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
@@ -180,7 +185,7 @@ async def handle_callbacks(client, query: CallbackQuery):
 -ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
 -ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>"""
         )
-        await query.message.edit_text(about_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Dᴇᴠ", url="t.me/GandhiNote", InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]]), parse_mode=ParseMode.HTML)
+        await query.message.edit_text(about_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Lᴏʀᴅ", url="t.me/GandhiNote", InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]]), parse_mode=ParseMode.HTML)
         return await query.answer()
 
     elif data == "back":
@@ -214,7 +219,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
         langs = sorted(set(doc.get("language", "Unknown") for doc in results))
         if not langs:
-            return await query.answer("No languages found!", show_alert=True)
+            return await query.answer("Nᴏ Lᴀɴɢᴜᴀɢᴇs Fᴏᴜɴᴅ!", show_alert=True)
 
         lang_buttons = [[InlineKeyboardButton(lang, callback_data=f"filterlang:{query_text}:{lang}")] for lang in langs]
         await query.message.edit_text("Select language:", reply_markup=InlineKeyboardMarkup(lang_buttons))
