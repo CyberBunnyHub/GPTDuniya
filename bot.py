@@ -160,7 +160,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         return await query.message.edit_text(to_smallcaps_title("""Welcome To My Store!\n\n
         <blockquote>Note: Under Construction...🚧</blockquote>"""), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")]]))
 
-    elif data == "about":
+elif data == "about":
     bot_username = (await client.get_me()).username
     about_text = f"""- - - - - - 🍿 {to_smallcaps_title("About Me")} - - - - - -
 
