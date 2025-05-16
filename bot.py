@@ -184,8 +184,15 @@ async def handle_callbacks(client, query: CallbackQuery):
 -ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
 -ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>"""
         )
-        await query.message.edit_text(about_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Lᴏʀᴅ", url="t.me/GandhiNote", InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]]), parse_mode=ParseMode.HTML)
-        return await query.answer()
+        await query.message.edit_text(
+    about_text,
+    reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton("Lᴏʀᴅ", url="https://t.me/GandhiNote")],
+        [InlineKeyboardButton("« Bᴀᴄᴋ", callback_data="back")]
+    ]),
+    parse_mode=ParseMode.HTML
+)
+return await query.answer()
 
     elif data == "back":
         image = random.choice(IMAGE_URLS)
