@@ -237,10 +237,20 @@ async def track_group(client, message: Message):
 @app.on_message(filters.new_chat_members)
 async def welcome_group(client, message: Message):
     for user in message.new_chat_members:
-        if user.id == (await client.get_me()).id:
+        if user.id == (await client.get_me()).id:  # Check if it's the bot
             group_title = message.chat.title
             group_link = f"https://t.me/c/{str(message.chat.id)[4:]}" if str(message.chat.id).startswith("-100") else "https://t.me/"
-            await message.reply_text(to_smallcaps_title(f"Thank you for adding me to <a href="{group_link}">{group_title}</a>! Let's get started."), parse_mode=ParseMode.HTML)
+            
+            caption = (to_smallcaps_title(
+                f"TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇʜ Tᴏ <a href=\"{group_link}\">{group_title}</a>\n\n"
+                f"Lᴇᴛ’s Get Started..."
+            ))
+
+            keyboard = InlineKeyboardMarkup(to_smallcaps_title([
+                [InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP), InlineKeyboardButton("Updates", url="UPDATE_CHANNEL)]
+            ]))
+
+            await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
