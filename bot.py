@@ -76,11 +76,11 @@ async def start_cmd(client, message: Message):
 
     if not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Now!"), url=UPDATE_CHANNEL],
+            [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
             [InlineKeyboardButton("Joined"), callback_data="checksub"]
         ])
         await emoji_msg.delete()
-        return await message.reply("To use this bot, please join our channel first."), reply_markup=keyboard
+        return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
 
     args = message.text.split()
     if len(args) > 1:
@@ -97,31 +97,39 @@ async def start_cmd(client, message: Message):
     bot_username = (await client.get_me()).username
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Add Me To Group"), url=f"https://t.me/{bot_username}?startgroup=true"],
-        [InlineKeyboardButton("⇋ Help"), callback_data="help"), InlineKeyboardButton("About ⇌"), callback_data="about"],
-        [InlineKeyboardButton("Updates"), url=UPDATE_CHANNEL), InlineKeyboardButton("Support"), url=SUPPORT_GROUP]
+      [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")]
+      [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
     ])
 
     await emoji_msg.delete()
     await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
-@app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)
-async def search_file(client, message: Message):
+@app.on_message(filters.private & filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)
+async def search_and_track(client, message: Message):
+    # Track user
+    users_col.update_one(
+        {"_id": message.from_user.id},
+        {"$set": {"name": message.from_user.first_name}},
+        upsert=True
+    )
+
+    # Subscription check
     if not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Now!"), url=UPDATE_CHANNEL],
-            [InlineKeyboardButton("Joined"), callback_data="checksub"]
+            [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
+            [InlineKeyboardButton("Joined", callback_data="checksub")]
         ])
-        
-        return await message.reply("To use this bot, please join our channel first."), reply_markup=keyboard
+        return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
 
+    # File search
     query = message.text.strip().lower()
     results = list(files_col.find({"file_name": {"$regex": query, "$options": "i"}}))
     if not results:
-        return
+        return  # Stay silent if nothing found
 
     markup = generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id)
     await message.reply(
-        f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>"),
+        f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>",
         reply_markup=markup,
         parse_mode=ParseMode.HTML
     )
@@ -146,8 +154,8 @@ async def handle_callbacks(client, query: CallbackQuery):
         caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Add Me To Group"), url=f"https://t.me/{(await client.get_me()).username}?startgroup=true"],
-            [InlineKeyboardButton("⇋ Help"), callback_data="help"), InlineKeyboardButton("About ⇌"), callback_data="about"],
-            [InlineKeyboardButton("Updates"), url=UPDATE_CHANNEL), InlineKeyboardButton("Support"), url=SUPPORT_GROUP]
+          [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")]
+          [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
         ])
         try:
             await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
@@ -158,7 +166,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         if await check_subscription(client, query.from_user.id):
             await query.message.edit_text("Joined!")
         else:
-            await query.answer("Please join the updates channel to use this bot."), show_alert=True
+            await query.answer("Please join the updates channel to use this bot.", show_alert=True)
 
     elif data == "noop":
         await query.answer()
@@ -171,7 +179,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             await query.answer("✅ File deleted.")
             await query.message.delete()
     else:
-        await query.answer("❌ File not found."), show_alert=True)
+        await query.answer("❌ File not found.", show_alert=True)
 
     if data.startswith("langs:"):
         _, query_text, _ = data.split(":", 2)
@@ -243,14 +251,6 @@ async def stats(client, message: Message):
     Total Users: {users}\n
     Total Groups: {groups}\n
     Total Files: {files}""")
-
-@app.on_message(filters.private & filters.text)
-async def track_user(client, message: Message):
-    users_col.update_one(
-        {"_id": message.from_user.id},
-        {"$set": {"name": message.from_user.first_name}},
-        upsert=True
-    )
 
 @app.on_message(filters.group & filters.text)
 async def track_group(client, message: Message):
