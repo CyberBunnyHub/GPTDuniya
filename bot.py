@@ -161,21 +161,25 @@ async def handle_callbacks(client, query: CallbackQuery):
         <blockquote>Note: Under Construction...🚧</blockquote>"""), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")]]))
 
     elif data == "about":
-        bot_username = (await client.get_me()).username
-        about_text = f"""- - - - - - 🍿 {to_smallcaps_title("About Me")} - - - - - -
+    bot_username = (await client.get_me()).username
+    about_text = f"""- - - - - - 🍿 {to_smallcaps_title("About Me")} - - - - - -
 
 {to_smallcaps_title("-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>")}
-{to_smallcaps_title("-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & \n-ˋˏ✄- - <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>")}
+{to_smallcaps_title("-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>")}
 {to_smallcaps_title("-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>")}
 {to_smallcaps_title("-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>")}
 """
-        await query.message.edit_text(
-            about_text,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(to_smallcaps_title("Lord"), url="https://t.me/GandhiNote"),                 InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")]
-            ]),
-            parse_mode=ParseMode.HTML
-        )
+
+    await query.message.edit_text(
+        about_text,
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(to_smallcaps_title("Lord"), url="https://t.me/GandhiNote"),
+                InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")
+            ]
+        ]),
+        parse_mode=ParseMode.HTML
+    )
 
     elif data == "back":
         image = random.choice(IMAGE_URLS)
