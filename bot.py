@@ -117,7 +117,7 @@ async def start_cmd(client, message: Message):
     bot_username = (await client.get_me()).username
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(to_smallcaps_title("Add Me To Group"), url=f"https://t.me/{bot_username}?startgroup=true")],
-        [InlineKeyboardButton(to_smallcaps_title("Help"), callback_data="help"), InlineKeyboardButton(to_smallcaps_title("About"), callback_data="about")],
+        [InlineKeyboardButton(to_smallcaps_title("⇋ Help"), callback_data="help"), InlineKeyboardButton(to_smallcaps_title("About ⇌"), callback_data="about")],
         [InlineKeyboardButton(to_smallcaps_title("Updates"), url=UPDATE_CHANNEL), InlineKeyboardButton(to_smallcaps_title("Support"), url=SUPPORT_GROUP)]
     ])
 
@@ -157,20 +157,21 @@ async def handle_callbacks(client, query: CallbackQuery):
         return await query.message.edit_reply_markup(markup)
 
     elif data == "help":
-        return await query.message.edit_text(to_smallcaps_title("Welcome to my store!\n\nNote: Under construction..."), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(to_smallcaps_title("Back"), callback_data="back")]]))
+        return await query.message.edit_text(to_smallcaps_title("""Welcome To My Store!\n\n
+        Note: Under Construction...🚧"""), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")]]))
 
     elif data == "about":
         bot_username = (await client.get_me()).username
         about_text = f"""- - - - - - 🍿 {to_smallcaps_title("About Me")} - - - - - -
 
-{to_smallcaps_title("I'm an Auto Filter Bot.")}
-{to_smallcaps_title("Built with Python & Pyrogram.")}
-{to_smallcaps_title("Database: MongoDB.")}
-{to_smallcaps_title("Hosted on: Render.")}"""
+{to_smallcaps_title("-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>")}
+{to_smallcaps_title("-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & \n-ˋˏ✄- - <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>")}
+{to_smallcaps_title("-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>")}
+{to_smallcaps_title(" -ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>")}"""
         await query.message.edit_text(
             about_text,
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(to_smallcaps_title("Owner"), url="https://t.me/GandhiNote"),                 InlineKeyboardButton(to_smallcaps_title("Back"), callback_data="back")]
+                [InlineKeyboardButton(to_smallcaps_title("Lord"), url="https://t.me/GandhiNote"),                 InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")]
             ]),
             parse_mode=ParseMode.HTML
         )
@@ -180,7 +181,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton(to_smallcaps_title("Add Me To Group"), url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
-            [InlineKeyboardButton(to_smallcaps_title("Help"), callback_data="help"), InlineKeyboardButton(to_smallcaps_title("About"), callback_data="about")],
+            [InlineKeyboardButton(to_smallcaps_title("⇋ Help"), callback_data="help"), InlineKeyboardButton(to_smallcaps_title("About ⇌"), callback_data="about")],
             [InlineKeyboardButton(to_smallcaps_title("Updates"), url=UPDATE_CHANNEL), InlineKeyboardButton(to_smallcaps_title("Support"), url=SUPPORT_GROUP)]
         ])
         try:
@@ -212,7 +213,10 @@ async def stats(client, message: Message):
     users = users_col.count_documents({})
     groups = groups_col.count_documents({})
     files = files_col.count_documents({})
-    await message.reply(to_smallcaps_title(f"📊 Bot Stats:\nUsers: {users}\nGroups: {groups}\nFiles: {files}"))
+    await message.reply(to_smallcaps_title(f"""- - - - - - 📉 Bot Stats - - - - - -\n
+    Total Users: {users}\n
+    Total Groups: {groups}\n
+    Total Files: {files}"""))
 
 @app.on_message(filters.private & filters.text)
 async def track_user(client, message: Message):
