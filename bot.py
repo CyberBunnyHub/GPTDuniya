@@ -191,64 +191,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             await query.message.delete()
     else:
         await query.answer(to_smallcaps_title("❌ File not found."), show_alert=True)
-    
-@app.on_message(filters.command("stats"))
-async def stats(client, message: Message):
-    users = users_col.count_documents({})
-    groups = groups_col.count_documents({})
-    files = files_col.count_documents({})
-    await message.reply(to_smallcaps_title(f"""- - - - - - 📉 Bot Stats - - - - - -\n
-    Total Users: {users}\n
-    Total Groups: {groups}\n
-    Total Files: {files}"""))
 
-@app.on_message(filters.private & filters.text)
-async def track_user(client, message: Message):
-    users_col.update_one(
-        {"_id": message.from_user.id},
-        {"$set": {"name": message.from_user.first_name}},
-        upsert=True
-    )
-
-@app.on_message(filters.group & filters.text)
-async def track_group(client, message: Message):
-    groups_col.update_one(
-        {"_id": message.chat.id},
-        {"$set": {"title": message.chat.title}},
-        upsert=True
-    )
-
-@app.on_message(filters.new_chat_members)
-async def welcome_group(client, message: Message):
-    for user in message.new_chat_members:
-        if user.id == (await client.get_me()).id:  # Check if it's the bot
-            group_title = message.chat.title
-            group_link = f"https://t.me/c/{str(message.chat.id)[4:]}" if str(message.chat.id).startswith("-100") else "https://t.me/"
-            
-            caption = (to_smallcaps_title(
-                f"TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇʜ Tᴏ <a href=\"{group_link}\">{group_title}</a>\n\n"
-                f"Lᴇᴛ’s Get Started..."
-            ))
-
-            keyboard = InlineKeyboardMarkup(to_smallcaps_title([
-                [InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP), InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)]
-            ]))
-
-            await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-
-@app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
-async def save_file(client, message: Message):
-    if not message.caption:
-        return
-    file_name = message.caption.strip().lower()
-    file_doc = {
-        "file_name": file_name,
-        "chat_id": message.chat.id,
-        "message_id": message.id,
-        "language": "English"
-    }
-    files_col.insert_one(file_doc)
-    
     elif data.startswith("langs:"):
         _, query_text, _ = data.split(":", 2)
         results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
@@ -309,6 +252,64 @@ async def save_file(client, message: Message):
         ]),
         parse_mode=ParseMode.HTML
     )
+
+    
+@app.on_message(filters.command("stats"))
+async def stats(client, message: Message):
+    users = users_col.count_documents({})
+    groups = groups_col.count_documents({})
+    files = files_col.count_documents({})
+    await message.reply(to_smallcaps_title(f"""- - - - - - 📉 Bot Stats - - - - - -\n
+    Total Users: {users}\n
+    Total Groups: {groups}\n
+    Total Files: {files}"""))
+
+@app.on_message(filters.private & filters.text)
+async def track_user(client, message: Message):
+    users_col.update_one(
+        {"_id": message.from_user.id},
+        {"$set": {"name": message.from_user.first_name}},
+        upsert=True
+    )
+
+@app.on_message(filters.group & filters.text)
+async def track_group(client, message: Message):
+    groups_col.update_one(
+        {"_id": message.chat.id},
+        {"$set": {"title": message.chat.title}},
+        upsert=True
+    )
+
+@app.on_message(filters.new_chat_members)
+async def welcome_group(client, message: Message):
+    for user in message.new_chat_members:
+        if user.id == (await client.get_me()).id:  # Check if it's the bot
+            group_title = message.chat.title
+            group_link = f"https://t.me/c/{str(message.chat.id)[4:]}" if str(message.chat.id).startswith("-100") else "https://t.me/"
+            
+            caption = (to_smallcaps_title(
+                f"TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇʜ Tᴏ <a href=\"{group_link}\">{group_title}</a>\n\n"
+                f"Lᴇᴛ’s Get Started..."
+            ))
+
+            keyboard = InlineKeyboardMarkup(to_smallcaps_title([
+                [InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP), InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)]
+            ]))
+
+            await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+
+@app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
+async def save_file(client, message: Message):
+    if not message.caption:
+        return
+    file_name = message.caption.strip().lower()
+    file_doc = {
+        "file_name": file_name,
+        "chat_id": message.chat.id,
+        "message_id": message.id,
+        "language": "English"
+    }
+    files_col.insert_one(file_doc)
 
 print("Bot is starting...")
 app.run()
