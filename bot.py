@@ -246,10 +246,50 @@ async def save_file(client, message: Message):
     file_doc = {
         "file_name": file_name,
         "chat_id": message.chat.id,
-        "message_id": message.message_id,
+        "message_id": message.id,
         "language": "English"
     }
     files_col.insert_one(file_doc)
+
+elif data.startswith("langs:"):
+        _, query_text, _ = data.split(":", 2)
+        results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
+        languages = sorted(set(doc.get("language", "Unknown") for doc in results))
+
+        if not languages:
+            return await query.answer("No language info available.", show_alert=True)
+
+        buttons = [
+            [InlineKeyboardButton(to_smallcaps_title(lang), callback_data=f"langselect:{query_text}:{lang}")]
+            for lang in languages
+        ]
+        buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
+        markup = InlineKeyboardMarkup(buttons)
+
+        await query.message.edit_text(
+            f"Sᴇʟᴇᴄᴛ A Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
+            reply_markup=markup,
+            parse_mode=ParseMode.HTML
+        )
+        return await query.answer()
+
+elif data.startswith("langselect:"):
+        _, query_text, selected_lang = data.split(":", 2)
+        results = list(files_col.find({
+            "file_name": {"$regex": query_text, "$options": "i"},
+            "language": selected_lang
+        }))
+
+        if not results:
+            return await query.message.edit_text(f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.", parse_mode=ParseMode.HTML)
+
+        markup = generate_pagination_buttons(
+            results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
+        )
+        await query.message.edit_text(
+            f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:", parse_mode=ParseMode.HTML, reply_markup=markup
+        )
+        return await query.answer()
 
 print("Bot is starting...")
 app.run()
