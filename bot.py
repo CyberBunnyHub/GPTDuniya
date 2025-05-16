@@ -142,13 +142,13 @@ async def search_file(client, message: Message):
         return
 
     markup = generate_pagination_buttons(results, (await client.get_me()).username, page=0, per_page=5, prefix="search", query=query, user_id=message.from_user.id)
-                await message.reply(
-    f"<blockquote>Hᴇʟʟᴏ! <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\n"
+    await message.reply(
+            f"<blockquote>Hᴇʟʟᴏ! <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\n"
     f"🎁Hᴇʀᴇ I Fᴏᴜɴᴅ Fᴏʀ Yᴏᴜʀ Sᴇᴀʀᴄʜ <code>{message.text.strip()}</code>",
+    )
     reply_markup=markup,
     parse_mode=ParseMode.HTML
-            )
-            
+                    
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
@@ -160,12 +160,13 @@ async def handle_callbacks(client, query: CallbackQuery):
         markup = generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)
         try:
             await message.reply(
-    f"<blockquote>Hᴇʟʟᴏ! <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\n"
+            f"<blockquote>Hᴇʟʟᴏ! <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\n"
     f"🎁Hᴇʀᴇ I Fᴏᴜɴᴅ Fᴏʀ Yᴏᴜʀ Sᴇᴀʀᴄʜ <code>{message.text.strip()}</code>",
+    )
     reply_markup=markup,
     parse_mode=ParseMode.HTML
-            )
-        except:
+    
+    except:
             pass
         return await query.answer()
 
