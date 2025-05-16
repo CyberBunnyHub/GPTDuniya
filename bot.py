@@ -247,7 +247,7 @@ async def welcome_group(client, message: Message):
             ))
 
             keyboard = InlineKeyboardMarkup(to_smallcaps_title([
-                [InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP), InlineKeyboardButton("Updates", url="UPDATE_CHANNEL)]
+                [InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP), InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)]
             ]))
 
             await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
