@@ -160,7 +160,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         return await query.message.edit_text(to_smallcaps_title("""Welcome To My Store!\n\n
         <blockquote>Note: Under Construction...🚧</blockquote>"""), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")]]))
 
-        elif data == "back":
+    elif data == "back":
         image = random.choice(IMAGE_URLS)
         caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
         keyboard = InlineKeyboardMarkup([
