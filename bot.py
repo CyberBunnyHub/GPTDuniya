@@ -181,10 +181,10 @@ async def handle_callbacks(client, query: CallbackQuery):
         parse_mode=ParseMode.HTML
     )
 
-    elif data == "back":
-        image = random.choice(IMAGE_URLS)
-        caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
-        keyboard = InlineKeyboardMarkup([
+elif data == "back":
+image = random.choice(IMAGE_URLS)
+caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
+keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton(to_smallcaps_title("Add Me To Group"), url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
             [InlineKeyboardButton(to_smallcaps_title("⇋ Help"), callback_data="help"), InlineKeyboardButton(to_smallcaps_title("About ⇌"), callback_data="about")],
             [InlineKeyboardButton(to_smallcaps_title("Updates"), url=UPDATE_CHANNEL), InlineKeyboardButton(to_smallcaps_title("Support"), url=SUPPORT_GROUP)]
