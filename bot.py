@@ -109,7 +109,7 @@ async def welcome_new_members(client, message: Message):
                  InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
             ])
             text = (
-   f'TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇh Tᴏ <a herf ='{group_link}'>'{group_title}'</a>, Lᴇᴛs Sᴛᴀʀᴛ Tʜᴇ Gᴀᴍᴇ...😂'
+f'TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇh Tᴏ <a href="{group_link}">{group_title}</a>, Lᴇᴛs Sᴛᴀʀᴛ Tʜᴇ Gᴀᴍᴇ...😂'
             )
             await message.reply(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
@@ -187,8 +187,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         await query.message.edit_text(
     about_text,
     reply_markup=InlineKeyboardMarkup([
-        [InlineKeyboardButton("Lᴏʀᴅ", url="https://t.me/GandhiNote")],
-        [InlineKeyboardButton("« Bᴀᴄᴋ", callback_data="back")]
+        [InlineKeyboardButton("Lᴏʀᴅ", url="https://t.me/GandhiNote" ,InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data="back")]
     ]),
     parse_mode=ParseMode.HTML
 )
