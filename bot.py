@@ -76,8 +76,8 @@ async def start_cmd(client, message: Message):
 
     if not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton(to_smallcaps_title("Join Now!"), url=f"https://t.me/{UPDATE_CHANNEL.lstrip('@')}")],
-            [InlineKeyboardButton(to_smallcaps_title("Joined"), callback_data="checksub")]
+            [InlineKeyboardButton("Join Now!"), url=UPDATE_CHANNEL],
+            [InlineKeyboardButton("Joined"), callback_data="checksub"]
         ])
         await emoji_msg.delete()
         return await message.reply(to_smallcaps_title("To use this bot, please join our channel first."), reply_markup=keyboard)
@@ -88,17 +88,17 @@ async def start_cmd(client, message: Message):
             doc = files_col.find_one({"_id": ObjectId(args[1])})
             await emoji_msg.delete()
             if not doc:
-                return await message.reply(to_smallcaps_title("❌ File not found."))
+                return await message.reply("❌ File not found.")
             return await client.copy_message(chat_id=message.chat.id, from_chat_id=doc["chat_id"], message_id=doc["message_id"])
         except Exception as e:
             await emoji_msg.delete()
-            return await message.reply(to_smallcaps_title(f"❌ Error retrieving file:\n\n{e}"))
+            return await message.reply(f"❌ Error retrieving file:\n\n{e}")
 
     bot_username = (await client.get_me()).username
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(to_smallcaps_title("Add Me To Group"), url=f"https://t.me/{bot_username}?startgroup=true")],
-        [InlineKeyboardButton(to_smallcaps_title("⇋ Help"), callback_data="help"), InlineKeyboardButton(to_smallcaps_title("About ⇌"), callback_data="about")],
-        [InlineKeyboardButton(to_smallcaps_title("Updates"), url=UPDATE_CHANNEL), InlineKeyboardButton(to_smallcaps_title("Support"), url=SUPPORT_GROUP)]
+        [InlineKeyboardButton("Add Me To Group"), url=f"https://t.me/{bot_username}?startgroup=true"],
+        [InlineKeyboardButton("⇋ Help"), callback_data="help"), InlineKeyboardButton("About ⇌"), callback_data="about"],
+        [InlineKeyboardButton("Updates"), url=UPDATE_CHANNEL), InlineKeyboardButton("Support"), url=SUPPORT_GROUP]
     ])
 
     await emoji_msg.delete()
@@ -108,10 +108,11 @@ async def start_cmd(client, message: Message):
 async def search_file(client, message: Message):
     if not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton(to_smallcaps_title("Join Now!"), url=f"https://t.me/{UPDATE_CHANNEL.lstrip('@')}")],
-            [InlineKeyboardButton(to_smallcaps_title("Joined"), callback_data="checksub")]
+            [InlineKeyboardButton("Join Now!"), url=UPDATE_CHANNEL],
+            [InlineKeyboardButton("Joined"), callback_data="checksub"]
         ])
-        return await message.reply(to_smallcaps_title("To use this bot, please join our channel first."), reply_markup=keyboard)
+        
+        return await message.reply("To use this bot, please join our channel first."), reply_markup=keyboard
 
     query = message.text.strip().lower()
     results = list(files_col.find({"file_name": {"$regex": query, "$options": "i"}}))
@@ -120,7 +121,7 @@ async def search_file(client, message: Message):
 
     markup = generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id)
     await message.reply(
-        to_smallcaps_title(f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>"),
+        f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>"),
         reply_markup=markup,
         parse_mode=ParseMode.HTML
     )
@@ -137,16 +138,16 @@ async def handle_callbacks(client, query: CallbackQuery):
         return await query.message.edit_reply_markup(markup)
 
     elif data == "help":
-        return await query.message.edit_text(to_smallcaps_title("""Welcome To My Store!\n\n
-        <blockquote>Note: Under Construction...🚧</blockquote>"""), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")]]))
+        return await query.message.edit_text("""Welcome To My Store!\n\n
+        <blockquote>Note: Under Construction...🚧</blockquote>"""), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back"), callback_data="back"]])
 
     elif data == "back":
         image = random.choice(IMAGE_URLS)
         caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton(to_smallcaps_title("Add Me To Group"), url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
-            [InlineKeyboardButton(to_smallcaps_title("⇋ Help"), callback_data="help"), InlineKeyboardButton(to_smallcaps_title("About ⇌"), callback_data="about")],
-            [InlineKeyboardButton(to_smallcaps_title("Updates"), url=UPDATE_CHANNEL), InlineKeyboardButton(to_smallcaps_title("Support"), url=SUPPORT_GROUP)]
+            [InlineKeyboardButton("Add Me To Group"), url=f"https://t.me/{(await client.get_me()).username}?startgroup=true"],
+            [InlineKeyboardButton("⇋ Help"), callback_data="help"), InlineKeyboardButton("About ⇌"), callback_data="about"],
+            [InlineKeyboardButton("Updates"), url=UPDATE_CHANNEL), InlineKeyboardButton("Support"), url=SUPPORT_GROUP]
         ])
         try:
             await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
@@ -157,7 +158,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         if await check_subscription(client, query.from_user.id):
             await query.message.edit_text(to_smallcaps_title("Joined!"))
         else:
-            await query.answer(to_smallcaps_title("Please join the updates channel to use this bot."), show_alert=True)
+            await query.answer("Please join the updates channel to use this bot."), show_alert=True
 
     elif data == "noop":
         await query.answer()
@@ -167,10 +168,10 @@ async def handle_callbacks(client, query: CallbackQuery):
         result = files_col.find_one({"_id": ObjectId(file_id)})
         if result:
             files_col.delete_one({"_id": ObjectId(file_id)})
-            await query.answer(to_smallcaps_title("✅ File deleted."))
+            await query.answer("✅ File deleted.")
             await query.message.delete()
     else:
-        await query.answer(to_smallcaps_title("❌ File not found."), show_alert=True)
+        await query.answer("❌ File not found."), show_alert=True)
 
     if data.startswith("langs:"):
         _, query_text, _ = data.split(":", 2)
@@ -181,7 +182,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             return await query.answer("No language info available.", show_alert=True)
 
         buttons = [
-            [InlineKeyboardButton(to_smallcaps_title(lang), callback_data=f"langselect:{query_text}:{lang}")]
+            [InlineKeyboardButton(lang), callback_data=f"langselect:{query_text}:{lang}")]
             for lang in languages
         ]
         buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
@@ -214,20 +215,20 @@ async def handle_callbacks(client, query: CallbackQuery):
 
     elif data == "about":
         bot_username = (await client.get_me()).username
-        about_text = f"""- - - - - - 🍿 {to_smallcaps_title("About Me")} - - - - - -
+        about_text = f"""- - - - - - 🍿"About Me"- - - - - -
 
-{to_smallcaps_title("-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>")}
-{to_smallcaps_title("-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>")}
-{to_smallcaps_title("-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>")}
-{to_smallcaps_title("-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>")}
+("-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>")
+("-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>")
+("-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>")
+("-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>")
 """
 
         await query.message.edit_text(
             about_text,
             reply_markup=InlineKeyboardMarkup([
                 [
-                    InlineKeyboardButton(to_smallcaps_title("Lord"), url="https://t.me/GandhiNote"),
-                    InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")
+                    InlineKeyboardButton("Lord"), url="https://t.me/GandhiNote",
+                    InlineKeyboardButton("⟲ Back"), callback_data="back"
                 ]
             ]),
             parse_mode=ParseMode.HTML
@@ -238,10 +239,10 @@ async def stats(client, message: Message):
     users = users_col.count_documents({})
     groups = groups_col.count_documents({})
     files = files_col.count_documents({})
-    await message.reply(to_smallcaps_title(f"""- - - - - - 📉 Bot Stats - - - - - -\n
+    await message.reply(f"""- - - - - - 📉 Bot Stats - - - - - -\n
     Total Users: {users}\n
     Total Groups: {groups}\n
-    Total Files: {files}"""))
+    Total Files: {files}""")
 
 @app.on_message(filters.private & filters.text)
 async def track_user(client, message: Message):
@@ -266,14 +267,14 @@ async def welcome_group(client, message: Message):
             group_title = message.chat.title
             group_link = f"https://t.me/c/{str(message.chat.id)[4:]}" if str(message.chat.id).startswith("-100") else "https://t.me/"
             
-            caption = (to_smallcaps_title(
+            caption = (
                 f"TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇʜ Tᴏ <a href=\"{group_link}\">{group_title}</a>\n\n"
                 f"Lᴇᴛ’s Get Started..."
-            ))
+            )
 
-            keyboard = InlineKeyboardMarkup(to_smallcaps_title([
+            keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP), InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)]
-            ]))
+            ])
 
             await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
