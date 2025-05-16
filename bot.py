@@ -160,28 +160,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         return await query.message.edit_text(to_smallcaps_title("""Welcome To My Store!\n\n
         <blockquote>Note: Under Construction...🚧</blockquote>"""), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")]]))
 
-    elif data == "about":
-        bot_username = (await client.get_me()).username
-        about_text = f"""- - - - - - 🍿 {to_smallcaps_title("About Me")} - - - - - -
-
-{to_smallcaps_title("-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>")}
-{to_smallcaps_title("-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>")}
-{to_smallcaps_title("-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>")}
-{to_smallcaps_title("-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>")}
-"""
-
-    await query.message.edit_text(
-        about_text,
-        reply_markup=InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton(to_smallcaps_title("Lord"), url="https://t.me/GandhiNote"),
-                InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")
-            ]
-        ]),
-        parse_mode=ParseMode.HTML
-    )
-    
-    elif data == "back":
+        elif data == "back":
         image = random.choice(IMAGE_URLS)
         caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
         keyboard = InlineKeyboardMarkup([
@@ -203,6 +182,28 @@ async def handle_callbacks(client, query: CallbackQuery):
     elif data == "noop":
         await query.answer()
 
+
+    elif data == "about":
+        bot_username = (await client.get_me()).username
+        about_text = f"""- - - - - - 🍿 {to_smallcaps_title("About Me")} - - - - - -
+
+{to_smallcaps_title("-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>")}
+{to_smallcaps_title("-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>")}
+{to_smallcaps_title("-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>")}
+{to_smallcaps_title("-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>")}
+"""
+
+    await query.message.edit_text(
+        about_text,
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(to_smallcaps_title("Lord"), url="https://t.me/GandhiNote"),
+                InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")
+            ]
+        ]),
+        parse_mode=ParseMode.HTML
+    )
+    
     elif data.startswith("deletefile:"):
         file_id = data.split(":")[1]
         result = files_col.find_one({"_id": ObjectId(file_id)})
