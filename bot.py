@@ -73,10 +73,10 @@ async def start_cmd(client, message: Message):
 
     if not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Update Channel", url=f"https://t.me/{UPDATE_CHANNEL.lstrip('@')}")],
-            [InlineKeyboardButton("✅ Joined", callback_data="checksub")]
+            [InlineKeyboardButton("Jᴏɪɴ Nᴏᴡ!", url=f"https://t.me/{UPDATE_CHANNEL.lstrip('@')}")],
+            [InlineKeyboardButton("Jᴏɪɴᴇᴅ", callback_data="checksub")]
         ])
-        return await message.reply("🚫 To use this bot, please join our update channel first.", reply_markup=keyboard)
+        return await message.reply("Tᴏ Usᴇ Tʜɪs Bᴏᴛ, Pʟᴇᴀsᴇ Jᴏɪɴ Oᴜʀ Cʜᴀɴɴᴇʟ Fɪʀsᴛ.", reply_markup=keyboard)
 
     args = message.text.split()
     if len(args) > 1:
@@ -109,8 +109,7 @@ async def welcome_new_members(client, message: Message):
                  InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP)]
             ])
             text = (
-   f'TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇh Tᴏ <a herf ='{group_link}'>'{group_title}'</a>
-Lᴇᴛs Sᴛᴀʀᴛ Tʜᴇ Gᴀᴍᴇ...😂'
+   f'TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇh Tᴏ <a herf ='{group_link}'>'{group_title}'</a>, Lᴇᴛs Sᴛᴀʀᴛ Tʜᴇ Gᴀᴍᴇ...😂'
             )
             await message.reply(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
