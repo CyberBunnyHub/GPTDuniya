@@ -213,17 +213,18 @@ async def handle_callbacks(client, query: CallbackQuery):
 
     elif data == "noop":
         await query.answer()
+        
+elif data.startswith("langs:"):
+    _, query_text, _ = data.split(":", 2)
+    results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
+    langs = sorted(set(doc.get("language", "Unknown") for doc in results))
+    if not langs:
+        return await query.answer("Nᴏ Lᴀɴɢᴜᴀɢᴇs Fᴏᴜɴᴅ!", show_alert=True)
 
-    elif data.startswith("langs:"):
-        _, query_text, _ = data.split(":", 2)
-        results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
-        langs = sorted(set(doc.get("language", "Unknown") for doc in results))
-        if not langs:
-            return await query.answer("Nᴏ Lᴀɴɢᴜᴀɢᴇs Fᴏᴜɴᴅ!", show_alert=True)
-
-        lang_buttons = [[InlineKeyboardButton(lang, callback_data=f"filterlang:{query_text}:{lang}")] for lang in langs]
-        await query.message.edit_text("Select language:", reply_markup=InlineKeyboardMarkup(lang_buttons))
-        return await query.answer()
+    lang_buttons = [[InlineKeyboardButton(lang, callback_data=f"filterlang:{query_text}:{lang}")] for lang in langs]
+    lang_buttons.append([InlineKeyboardButton("« Bᴀᴄᴋ", callback_data=f"backtoresults:{query_text}")])  # <- Add this
+    await query.message.edit_text("Select language:", reply_markup=InlineKeyboardMarkup(lang_buttons))
+    return await query.answer()
 
     elif data.startswith("filterlang:"):
         _, query_text, lang = data.split(":", 2)
@@ -253,6 +254,19 @@ async def handle_callbacks(client, query: CallbackQuery):
                 continue
         return await query.answer(f"✅ Sent files{' in ' + lang if lang else ''}.")
 
+        elif data.startswith("backtoresults:"):
+    query_text = data.split(":", 1)[1]
+    results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
+    if not results:
+        return await query.message.edit_text("❌ No files found.")
+    markup = generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id)
+    return await query.message.edit_text(
+        f"<blockquote>Hᴇʟʟᴏ! <a href='tg://user?id={query.from_user.id}'>{query.from_user.first_name}</a>👋,</blockquote>\n\n"
+        f"🎁Hᴇʀᴇ I Fᴏᴜɴᴅ Fᴏʀ Yᴏᴜʀ Sᴇᴀʀᴄʜ <code>{query_text}</code>",
+        reply_markup=markup,
+        parse_mode=ParseMode.HTML
+    )
+    
     elif data.startswith("deletefile:"):
         file_id = data.split(":")[1]
         result = files_col.find_one({"_id": ObjectId(file_id)})
