@@ -180,8 +180,8 @@ async def handle_callbacks(client, query: CallbackQuery):
         ]),
         parse_mode=ParseMode.HTML
     )
-
-elif data == "back":
+    
+    elif data == "back":
         image = random.choice(IMAGE_URLS)
         caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
         keyboard = InlineKeyboardMarkup([
