@@ -77,10 +77,10 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
 
     nav_buttons = []
     if page > 0:
-        nav_buttons.append(InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"{prefix}:{page - 1}:{query}"))
+        nav_buttons.append(InlineKeyboardButton("⟲ Bᴀᴄᴋ", callback_data=f"{prefix}:{page - 1}:{query}"))
     nav_buttons.append(InlineKeyboardButton(f"Page {page + 1}/{total_pages}", callback_data="noop"))
     if end < len(results):
-        nav_buttons.append(InlineKeyboardButton("</Nᴇxᴛ>", callback_data=f"{prefix}:{page + 1}:{query}"))
+        nav_buttons.append(InlineKeyboardButton("Nᴇxᴛ ⇌", callback_data=f"{prefix}:{page + 1}:{query}"))
 
     if nav_buttons:
         buttons.append(nav_buttons)
@@ -140,7 +140,7 @@ async def search_file(client, message: Message):
 
     markup = generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id)
     await message.reply(
-        to_smallcaps_title(f"Hello {message.from_user.first_name},\n\nHere is what I found for your search: {message.text.strip()}"),
+        to_smallcaps_title(f"<blockquote>Hello <a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>"),
         reply_markup=markup,
         parse_mode=ParseMode.HTML
     )
@@ -158,7 +158,7 @@ async def handle_callbacks(client, query: CallbackQuery):
 
     elif data == "help":
         return await query.message.edit_text(to_smallcaps_title("""Welcome To My Store!\n\n
-        Note: Under Construction...🚧"""), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")]]))
+        <blockquote>Note: Under Construction...🚧</blockquote>"""), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")]]))
 
     elif data == "about":
         bot_username = (await client.get_me()).username
@@ -240,7 +240,7 @@ async def welcome_group(client, message: Message):
         if user.id == (await client.get_me()).id:
             group_title = message.chat.title
             group_link = f"https://t.me/c/{str(message.chat.id)[4:]}" if str(message.chat.id).startswith("-100") else "https://t.me/"
-            await message.reply_text(to_smallcaps_title(f"Thank you for adding me to {group_title}! Let's get started."), parse_mode=ParseMode.HTML)
+            await message.reply_text(to_smallcaps_title(f"Thank you for adding me to <a href="{group_link}">{group_title}</a>! Let's get started."), parse_mode=ParseMode.HTML)
 
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
