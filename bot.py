@@ -192,7 +192,6 @@ async def handle_callbacks(client, query: CallbackQuery):
     else:
         await query.answer(to_smallcaps_title("❌ File not found."), show_alert=True)
 
-
     elif data.startswith("langs:"):
         _, query_text, _ = data.split(":", 2)
         results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
