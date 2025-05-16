@@ -191,27 +191,6 @@ async def handle_callbacks(client, query: CallbackQuery):
             await query.message.delete()
     else:
         await query.answer(to_smallcaps_title("❌ File not found."), show_alert=True)
-
-    elif data == "about":
-        bot_username = (await client.get_me()).username
-        about_text = f"""- - - - - - 🍿 {to_smallcaps_title("About Me")} - - - - - -
-
-{to_smallcaps_title("-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>")}
-{to_smallcaps_title("-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>")}
-{to_smallcaps_title("-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>")}
-{to_smallcaps_title("-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>")}
-"""
-
-    await query.message.edit_text(
-        about_text,
-        reply_markup=InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton(to_smallcaps_title("Lord"), url="https://t.me/GandhiNote"),
-                InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")
-            ]
-        ]),
-        parse_mode=ParseMode.HTML
-    )
     
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
@@ -269,13 +248,13 @@ async def save_file(client, message: Message):
         "language": "English"
     }
     files_col.insert_one(file_doc)
-
-elif data.startswith("langs:"):
+    
+    elif data.startswith("langs:"):
         _, query_text, _ = data.split(":", 2)
         results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
         languages = sorted(set(doc.get("language", "Unknown") for doc in results))
 
-        if not languages:
+    if not languages:
             return await query.answer("No language info available.", show_alert=True)
 
         buttons = [
@@ -285,30 +264,51 @@ elif data.startswith("langs:"):
         buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
         markup = InlineKeyboardMarkup(buttons)
 
-        await query.message.edit_text(
+    await query.message.edit_text(
             f"Sᴇʟᴇᴄᴛ A Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
             reply_markup=markup,
             parse_mode=ParseMode.HTML
         )
-        return await query.answer()
+    return await query.answer()
 
-elif data.startswith("langselect:"):
+    elif data.startswith("langselect:"):
         _, query_text, selected_lang = data.split(":", 2)
         results = list(files_col.find({
             "file_name": {"$regex": query_text, "$options": "i"},
             "language": selected_lang
         }))
 
-        if not results:
+    if not results:
             return await query.message.edit_text(f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.", parse_mode=ParseMode.HTML)
 
         markup = generate_pagination_buttons(
             results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
         )
-        await query.message.edit_text(
+    await query.message.edit_text(
             f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:", parse_mode=ParseMode.HTML, reply_markup=markup
         )
-        return await query.answer()
+    return await query.answer()
+
+    elif data == "about":
+        bot_username = (await client.get_me()).username
+        about_text = f"""- - - - - - 🍿 {to_smallcaps_title("About Me")} - - - - - -
+
+{to_smallcaps_title("-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>")}
+{to_smallcaps_title("-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>")}
+{to_smallcaps_title("-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>")}
+{to_smallcaps_title("-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>")}
+"""
+
+    await query.message.edit_text(
+        about_text,
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(to_smallcaps_title("Lord"), url="https://t.me/GandhiNote"),
+                InlineKeyboardButton(to_smallcaps_title("⟲ Back"), callback_data="back")
+            ]
+        ]),
+        parse_mode=ParseMode.HTML
+    )
 
 print("Bot is starting...")
 app.run()
