@@ -80,7 +80,7 @@ async def start_cmd(client, message: Message):
             [InlineKeyboardButton("Joined"), callback_data="checksub"]
         ])
         await emoji_msg.delete()
-        return await message.reply(to_smallcaps_title("To use this bot, please join our channel first."), reply_markup=keyboard)
+        return await message.reply("To use this bot, please join our channel first."), reply_markup=keyboard
 
     args = message.text.split()
     if len(args) > 1:
@@ -156,7 +156,7 @@ async def handle_callbacks(client, query: CallbackQuery):
 
     elif data == "checksub":
         if await check_subscription(client, query.from_user.id):
-            await query.message.edit_text(to_smallcaps_title("Joined!"))
+            await query.message.edit_text("Joined!")
         else:
             await query.answer("Please join the updates channel to use this bot."), show_alert=True
 
