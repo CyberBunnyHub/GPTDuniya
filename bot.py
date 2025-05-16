@@ -24,26 +24,6 @@ files_col = db["files"]
 users_col = db["users"]
 groups_col = db["groups"]
 
-def to_smallcaps_title(text):
-    smallcaps_map = {
-        'a': 'ᴀ', 'b': 'ʙ', 'c': 'ᴄ', 'd': 'ᴅ', 'e': 'ᴇ', 'f': 'ғ', 'g': 'ɢ',
-        'h': 'ʜ', 'i': 'ɪ', 'j': 'ᴊ', 'k': 'ᴋ', 'l': 'ʟ', 'm': 'ᴍ', 'n': 'ɴ',
-        'o': 'ᴏ', 'p': 'ᴘ', 'q': 'ǫ', 'r': 'ʀ', 's': 's', 't': 'ᴛ', 'u': 'ᴜ',
-        'v': 'ᴠ', 'w': 'ᴡ', 'x': 'x', 'y': 'ʏ', 'z': 'ᴢ'
-    }
-
-    def smallcap_char(c):
-        return smallcaps_map.get(c.lower(), c)
-
-    def process_word(word):
-        if not word:
-            return word
-        first = word[0].upper()
-        rest = ''.join(smallcap_char(c) for c in word[1:])
-        return first + rest
-
-    return ' '.join(process_word(word) for word in text.split())
-
 async def check_subscription(client, user_id):
     try:
         member = await client.get_chat_member(UPDATE_CHANNEL, user_id)
