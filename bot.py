@@ -131,10 +131,10 @@ async def save_file(client, message: Message):
 async def search_file(client, message: Message):
     if not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Update Channel", url=f"https://t.me/{UPDATE_CHANNEL.lstrip('@')}")],
-            [InlineKeyboardButton("✅ Joined", callback_data="checksub")]
+            [InlineKeyboardButton("Jᴏɪɴ Nᴏᴡ!", url=f"https://t.me/{UPDATE_CHANNEL.lstrip('@')}")],
+            [InlineKeyboardButton("Jᴏɪɴᴇᴅ", callback_data="checksub")]
         ])
-        return await message.reply("🚫 To use this bot, please join our update channel first.", reply_markup=keyboard)
+        return await message.reply("Tᴏ Usᴇ Tʜɪs Bᴏᴛ, Pʟᴇᴀsᴇ Jᴏɪɴ Oᴜʀ Cʜᴀɴɴᴇʟ Fɪʀsᴛ.", reply_markup=keyboard)
 
     query = message.text.strip().lower()
     results = list(files_col.find({"file_name": {"$regex": query, "$options": "i"}}))
@@ -206,9 +206,9 @@ async def handle_callbacks(client, query: CallbackQuery):
 
     elif data == "checksub":
         if await check_subscription(client, query.from_user.id):
-            await query.message.edit_text("✅ You're subscribed! You can now use the bot.")
+            await query.message.edit_text("Jᴏɪɴᴇᴅ")
         else:
-            await query.answer("❌ You're still not subscribed.", show_alert=True)
+            await query.answer("Tᴏ Usᴇ Tʜɪs Bᴏᴛ, Pʟᴇᴀsᴇ Jᴏɪɴ Oᴜʀ Cʜᴀɴɴᴇʟ Fɪʀsᴛ.", show_alert=True)
 
     elif data == "noop":
         await query.answer()
@@ -216,7 +216,7 @@ async def handle_callbacks(client, query: CallbackQuery):
 elif data.startswith("langs:"):
     _, query_text, _ = data.split(":", 2)
     results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
-    langs = sorted(set(doc.get("language", "Unknown") for doc in results))
+    langs = sorted(set(doc.get("language", "Uɴᴋɴᴏᴡɴ") for doc in results))
     if not langs:
         return await query.answer("Nᴏ Lᴀɴɢᴜᴀɢᴇs Fᴏᴜɴᴅ!", show_alert=True)
 
