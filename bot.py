@@ -204,10 +204,8 @@ else:
     elif data.startswith("langselect:"):
         _, query_text, selected_lang = data.split(":", 2)
         results = list(files_col.find({
-            "file_name": {
-    "$regex": f"{query_text}.*\\b{selected_lang}\\b",
-    "$options": "i"
-}))
+            "file_name": {"$regex": f"{query_text}.*\\b{selected_lang}\\b","$options": "i"
+                         }))
 
         if not results:
             return await query.message.edit_text(f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.", parse_mode=ParseMode.HTML)
