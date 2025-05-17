@@ -174,16 +174,6 @@ async def handle_callbacks(client, query: CallbackQuery):
     elif data == "noop":
         await query.answer()
 
-    elif data.startswith("deletefile:"):
-        file_id = data.split(":")[1]
-        result = files_col.find_one({"_id": ObjectId(file_id)})
-        if result:
-            files_col.delete_one({"_id": ObjectId(file_id)})
-            await query.answer("✅ File deleted.")
-            await query.message.delete()
-    else:
-        await query.answer("❌ File not found.", show_alert=True)
-
     if data.startswith("langs:"):
         _, query_text, _ = data.split(":", 2)
 
@@ -260,6 +250,16 @@ async def handle_callbacks(client, query: CallbackQuery):
             ]),
             parse_mode=ParseMode.HTML
         )
+            
+    elif data.startswith("deletefile:"):
+        file_id = data.split(":")[1]
+        result = files_col.find_one({"_id": ObjectId(file_id)})
+        if result:
+            files_col.delete_one({"_id": ObjectId(file_id)})
+            await query.answer("✅ File deleted.")
+            await query.message.delete()
+    else:
+        await query.answer("❌ File not found.", show_alert=True)
 
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
