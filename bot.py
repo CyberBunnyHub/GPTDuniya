@@ -146,14 +146,14 @@ async def handle_callbacks(client, query: CallbackQuery):
         return await query.message.edit_reply_markup(markup)
 
     elif data.startswith("deletefile:"):
-file_id = data.split(":")[1]
-result = files_col.find_one({"_id": ObjectId(file_id)})
-if result:
-    files_col.delete_one({"_id": ObjectId(file_id)})
-    await query.answer("✅ File deleted.")
-    await query.message.delete()
-else:
-    await query.answer("❌ File not found.", show_alert=True)
+        file_id = data.split(":")[1]
+        result = files_col.find_one({"_id": ObjectId(file_id)})
+        if result:
+            files_col.delete_one({"_id": ObjectId(file_id)})
+            await query.answer("✅ File deleted.")
+            await query.message.delete()
+        else:
+            await query.answer("❌ File not found.", show_alert=True)
 
     elif data == "help":
         await query.message.edit_text(
