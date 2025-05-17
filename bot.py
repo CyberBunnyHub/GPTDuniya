@@ -16,6 +16,7 @@ from config import (
     UPDATE_CHANNEL, SUPPORT_GROUP
 )
 
+# Predefined languages
 PREDEFINED_LANGUAGES = ["English", "Hindi", "Tamil", "Telugu", "Malayalam"]
 
 app = Client("AutoFilterBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
@@ -79,8 +80,8 @@ async def start_cmd(client, message: Message):
     if not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Joined", callback_data="checksub")]
-        ])
+            [InlineKeyboardButton("Joined"), callback_data="checksub")]
+        )
         await emoji_msg.delete()
         return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
 
@@ -98,7 +99,7 @@ async def start_cmd(client, message: Message):
 
     bot_username = (await client.get_me()).username
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{bot_username}?startgroup=true")],
+        [InlineKeyboardButton("Add Me To Group"), url=f"https://t.me/{bot_username}?startgroup=true"],
         [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
         [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
     ])
@@ -145,16 +146,14 @@ async def handle_callbacks(client, query: CallbackQuery):
         return await query.message.edit_reply_markup(markup)
 
     elif data == "help":
-        return await query.message.edit_text(
-            """Welcome To My Store!\n\n<blockquote>Note: Under Construction...🚧</blockquote>""",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data="back")]])
-        )
+        return await query.message.edit_text("""Welcome To My Store!\n\n
+        <blockquote>Note: Under Construction...🚧</blockquote>"""), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data="back")]])
 
     elif data == "back":
         image = random.choice(IMAGE_URLS)
         caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
+            [InlineKeyboardButton("Add Me To Group"), url=f"https://t.me/{(await client.get_me()).username}?startgroup=true"],
             [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
             [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
         ])
@@ -179,17 +178,15 @@ async def handle_callbacks(client, query: CallbackQuery):
             files_col.delete_one({"_id": ObjectId(file_id)})
             await query.answer("✅ File deleted.")
             await query.message.delete()
-    elif data.startswith("langs:"):
-        _, query_text, _ = data.split(":", 2)
-        results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
-        languages = sorted(set(doc.get("language", "Unknown") for doc in results))
+    else:
+        await query.answer("❌ File not found.", show_alert=True)
 
-        if not languages:
-            return await query.answer("No language info available.", show_alert=True)
+    if data.startswith("langs:"):
+        _, query_text, _ = data.split(":", 2)
 
         buttons = [
             [InlineKeyboardButton(lang, callback_data=f"langselect:{query_text}:{lang}")]
-            for lang in languages
+            for lang in PREDEFINED_LANGUAGES
         ]
         buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
         markup = InlineKeyboardMarkup(buttons)
@@ -219,24 +216,6 @@ async def handle_callbacks(client, query: CallbackQuery):
         )
         return await query.answer()
 
-    elif data == "about":
-        bot_username = (await client.get_me()).username
-        about_text = f"""- - - - - - 🍿"About Me"- - - - - -
-
-("-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>")
-("-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>")
-("-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>")
-("-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>")
-"""
-
-        await query.message.edit_text(
-            about_text,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"), InlineKeyboardButton("⟲ Back", callback_data="back")]
-            ]),
-            parse_mode=ParseMode.HTML
-        )
-
     elif data.startswith("getfiles:"):
         _, query_text = data.split(":", 1)
         results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
@@ -257,6 +236,27 @@ async def handle_callbacks(client, query: CallbackQuery):
             except Exception as e:
                 print(f"Failed to send file: {e}")
                 continue
+
+    elif data == "about":
+        bot_username = (await client.get_me()).username
+        about_text = f"""- - - - - - 🍿"About Me"- - - - - -
+
+("-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>")
+("-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>")
+("-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>")
+("-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>")
+"""
+
+        await query.message.edit_text(
+            about_text,
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
+                    InlineKeyboardButton("⟲ Back", callback_data="back")
+                ]
+            ]),
+            parse_mode=ParseMode.HTML
+        )
 
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
@@ -282,16 +282,13 @@ async def welcome_group(client, message: Message):
         if user.id == (await client.get_me()).id:
             group_title = message.chat.title
             group_link = f"https://t.me/c/{str(message.chat.id)[4:]}" if str(message.chat.id).startswith("-100") else "https://t.me/"
-
             caption = (
                 f"TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇʜ Tᴏ <a href=\"{group_link}\">{group_title}</a>\n\n"
                 f"Lᴇᴛ’s Get Started..."
             )
-
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP), InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)]
             ])
-
             await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
