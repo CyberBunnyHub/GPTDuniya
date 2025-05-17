@@ -146,11 +146,11 @@ async def handle_callbacks(client, query: CallbackQuery):
         return await query.message.edit_reply_markup(markup)
 
     elif data == "help":
-await query.message.edit_text(
-    "Welcome To My Store!\n\n<blockquote>Note: Under Construction...🚧</blockquote>",
-    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data="back")]]),
-    parse_mode=ParseMode.HTML
-)
+        await query.message.edit_text(
+            "Welcome To My Store!\n\n<blockquote>Note: Under Construction...🚧</blockquote>",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data="back")]]),
+            parse_mode=ParseMode.HTML
+        )
 
     elif data == "back":
         image = random.choice(IMAGE_URLS)
