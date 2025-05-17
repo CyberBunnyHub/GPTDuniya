@@ -77,7 +77,7 @@ async def start_cmd(client, message: Message):
     if not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Joined"), callback_data="checksub"]
+            [InlineKeyboardButton("Joined", callback_data="checksub")]
         ])
         await emoji_msg.delete()
         return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
@@ -96,9 +96,9 @@ async def start_cmd(client, message: Message):
 
     bot_username = (await client.get_me()).username
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Add Me To Group"), url=f"https://t.me/{bot_username}?startgroup=true"],
-      [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")]
-      [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+        [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{bot_username}?startgroup=true")],
+        [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
+        [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
     ])
 
     await emoji_msg.delete()
@@ -106,14 +106,12 @@ async def start_cmd(client, message: Message):
 
 @app.on_message(filters.private & filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)
 async def search_and_track(client, message: Message):
-    # Track user
     users_col.update_one(
         {"_id": message.from_user.id},
         {"$set": {"name": message.from_user.first_name}},
         upsert=True
     )
 
-    # Subscription check
     if not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
@@ -121,11 +119,10 @@ async def search_and_track(client, message: Message):
         ])
         return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
 
-    # File search
     query = message.text.strip().lower()
     results = list(files_col.find({"file_name": {"$regex": query, "$options": "i"}}))
     if not results:
-        return  # Stay silent if nothing found
+        return
 
     markup = generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id)
     await message.reply(
@@ -146,16 +143,18 @@ async def handle_callbacks(client, query: CallbackQuery):
         return await query.message.edit_reply_markup(markup)
 
     elif data == "help":
-        return await query.message.edit_text("""Welcome To My Store!\n\n
-        <blockquote>Note: Under Construction...🚧</blockquote>"""), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back"), callback_data="back"]])
+        return await query.message.edit_text(
+            """Welcome To My Store!\n\n<blockquote>Note: Under Construction...🚧</blockquote>""",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data="back")]])
+        )
 
     elif data == "back":
         image = random.choice(IMAGE_URLS)
         caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Add Me To Group"), url=f"https://t.me/{(await client.get_me()).username}?startgroup=true"],
-          [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")]
-          [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+            [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
+            [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
+            [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
         ])
         try:
             await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
@@ -178,10 +177,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             files_col.delete_one({"_id": ObjectId(file_id)})
             await query.answer("✅ File deleted.")
             await query.message.delete()
-    else:
-        await query.answer("❌ File not found.", show_alert=True)
-
-    if data.startswith("langs:"):
+    elif data.startswith("langs:"):
         _, query_text, _ = data.split(":", 2)
         results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
         languages = sorted(set(doc.get("language", "Unknown") for doc in results))
@@ -190,7 +186,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             return await query.answer("No language info available.", show_alert=True)
 
         buttons = [
-            [InlineKeyboardButton(lang), callback_data=f"langselect:{query_text}:{lang}")]
+            [InlineKeyboardButton(lang, callback_data=f"langselect:{query_text}:{lang}")]
             for lang in languages
         ]
         buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
@@ -234,10 +230,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         await query.message.edit_text(
             about_text,
             reply_markup=InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton("Lord"), url="https://t.me/GandhiNote",
-                    InlineKeyboardButton("⟲ Back"), callback_data="back"
-                ]
+                [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"), InlineKeyboardButton("⟲ Back", callback_data="back")]
             ]),
             parse_mode=ParseMode.HTML
         )
@@ -263,10 +256,10 @@ async def track_group(client, message: Message):
 @app.on_message(filters.new_chat_members)
 async def welcome_group(client, message: Message):
     for user in message.new_chat_members:
-        if user.id == (await client.get_me()).id:  # Check if it's the bot
+        if user.id == (await client.get_me()).id:
             group_title = message.chat.title
             group_link = f"https://t.me/c/{str(message.chat.id)[4:]}" if str(message.chat.id).startswith("-100") else "https://t.me/"
-            
+
             caption = (
                 f"TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇʜ Tᴏ <a href=\"{group_link}\">{group_title}</a>\n\n"
                 f"Lᴇᴛ’s Get Started..."
