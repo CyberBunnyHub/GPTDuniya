@@ -156,7 +156,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         image = random.choice(IMAGE_URLS)
         caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Add Me To Group"), url=f"https://t.me/{(await client.get_me()).username}?startgroup=true"],
+            [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
             [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
             [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
         ])
