@@ -17,7 +17,7 @@ from config import (
 )
 
 # Predefined languages
-PREDEFINED_LANGUAGES = ["English", "Hindi", "Tamil", "Telugu", "Malayalam"]
+PREDEFINED_LANGUAGES = ["Kannada", "English", "Hindi", "Tamil", "Telugu", "Malayalam"]
 
 app = Client("AutoFilterBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -195,7 +195,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         _, query_text, selected_lang = data.split(":", 2)
         results = list(files_col.find({
             "file_name": {"$regex": query_text, "$options": "i"},
-            "language": selected_lang
+            "language": {"$regex": f"^{selected_lang}$", "$options": "i"}
         }))
 
         if not results:
