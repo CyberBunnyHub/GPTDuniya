@@ -78,10 +78,10 @@ async def start_cmd(client, message: Message):
     caption = random.choice(CAPTIONS).format(user_mention=user_mention)
 
     if not await check_subscription(client, message.from_user.id):
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Joined"), callback_data="checksub")]
-        )
+    keyboard = InlineKeyboardMarkup([
+    [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
+    [InlineKeyboardButton("Joined", callback_data="checksub")]
+])
         await emoji_msg.delete()
         return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
 
