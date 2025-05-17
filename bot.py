@@ -145,6 +145,16 @@ async def handle_callbacks(client, query: CallbackQuery):
         markup = generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)
         return await query.message.edit_reply_markup(markup)
 
+    elif data.startswith("deletefile:"):
+file_id = data.split(":")[1]
+result = files_col.find_one({"_id": ObjectId(file_id)})
+if result:
+    files_col.delete_one({"_id": ObjectId(file_id)})
+    await query.answer("✅ File deleted.")
+    await query.message.delete()
+else:
+    await query.answer("❌ File not found.", show_alert=True)
+
     elif data == "help":
         await query.message.edit_text(
             "Welcome To My Store!\n\n<blockquote>Note: Under Construction...🚧</blockquote>",
@@ -183,7 +193,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         ]
         buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
         markup = InlineKeyboardMarkup(buttons)
-
+        
         await query.message.edit_text(
             f"Sᴇʟᴇᴄᴛ A Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
             reply_markup=markup,
@@ -194,9 +204,10 @@ async def handle_callbacks(client, query: CallbackQuery):
     elif data.startswith("langselect:"):
         _, query_text, selected_lang = data.split(":", 2)
         results = list(files_col.find({
-            "file_name": {"$regex": query_text, "$options": "i"},
-            "language": {"$regex": f"^{selected_lang}$", "$options": "i"}
-        }))
+            "file_name": {
+    "$regex": f"{query_text}.*\\b{selected_lang}\\b",
+    "$options": "i"
+}))
 
         if not results:
             return await query.message.edit_text(f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.", parse_mode=ParseMode.HTML)
@@ -296,17 +307,6 @@ async def save_file(client, message: Message):
         "language": "English"
     }
     files_col.insert_one(file_doc)
-
-elif data.startswith("deletefile:"):
-file_id = data.split(":")[1]
-result = files_col.find_one({"_id": ObjectId(file_id)})
-if result:
-    files_col.delete_one({"_id": ObjectId(file_id)})
-    await query.answer("✅ File deleted.")
-    await query.message.delete()
-else:
-    await query.answer("❌ File not found.", show_alert=True)
-
 
 print("Bot is starting...")
 app.run()
