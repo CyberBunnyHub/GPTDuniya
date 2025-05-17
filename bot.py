@@ -251,16 +251,6 @@ async def handle_callbacks(client, query: CallbackQuery):
             parse_mode=ParseMode.HTML
         )
             
-    elif data.startswith("deletefile:"):
-        file_id = data.split(":")[1]
-        result = files_col.find_one({"_id": ObjectId(file_id)})
-        if result:
-            files_col.delete_one({"_id": ObjectId(file_id)})
-            await query.answer("✅ File deleted.")
-            await query.message.delete()
-    else:
-        await query.answer("❌ File not found.", show_alert=True)
-
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
     users = users_col.count_documents({})
@@ -306,6 +296,17 @@ async def save_file(client, message: Message):
         "language": "English"
     }
     files_col.insert_one(file_doc)
+
+    elif data.startswith("deletefile:"):
+        file_id = data.split(":")[1]
+        result = files_col.find_one({"_id": ObjectId(file_id)})
+        if result:
+            files_col.delete_one({"_id": ObjectId(file_id)})
+            await query.answer("✅ File deleted.")
+            await query.message.delete()
+    else:
+        await query.answer("❌ File not found.", show_alert=True)
+
 
 print("Bot is starting...")
 app.run()
