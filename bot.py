@@ -297,15 +297,15 @@ async def save_file(client, message: Message):
     }
     files_col.insert_one(file_doc)
 
-    elif data.startswith("deletefile:"):
-        file_id = data.split(":")[1]
-        result = files_col.find_one({"_id": ObjectId(file_id)})
-        if result:
-            files_col.delete_one({"_id": ObjectId(file_id)})
-            await query.answer("✅ File deleted.")
-            await query.message.delete()
-    else:
-        await query.answer("❌ File not found.", show_alert=True)
+elif data.startswith("deletefile:"):
+file_id = data.split(":")[1]
+result = files_col.find_one({"_id": ObjectId(file_id)})
+if result:
+    files_col.delete_one({"_id": ObjectId(file_id)})
+    await query.answer("✅ File deleted.")
+    await query.message.delete()
+else:
+    await query.answer("❌ File not found.", show_alert=True)
 
 
 print("Bot is starting...")
