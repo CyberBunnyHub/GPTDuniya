@@ -235,6 +235,27 @@ async def handle_callbacks(client, query: CallbackQuery):
             parse_mode=ParseMode.HTML
         )
 
+    elif data.startswith("getfiles:"):
+        _, query_text = data.split(":", 1)
+        results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
+
+        if not results:
+            return await query.answer("No files found.", show_alert=True)
+
+        await query.answer("Sending files...", show_alert=False)
+
+        for doc in results[:10]:  # Limit to first 10 files to avoid flooding
+            try:
+                await client.copy_message(
+                    chat_id=query.message.chat.id,
+                    from_chat_id=doc["chat_id"],
+                    message_id=doc["message_id"]
+                )
+                await asyncio.sleep(0.5)  # Small delay to avoid hitting flood limits
+            except Exception as e:
+                print(f"Failed to send file: {e}")
+                continue
+
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
     users = users_col.count_documents({})
