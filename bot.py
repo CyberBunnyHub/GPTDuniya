@@ -300,14 +300,32 @@ async def welcome_group(client, message: Message):
 async def save_file(client, message: Message):
     if not message.caption:
         return
+
     file_name = message.caption.strip().lower()
+    file_size = message.document.file_size if message.document else message.video.file_size
+    chat_id = message.chat.id
+    message_id = message.id
+
+    # Check for duplicates by file_name and file_size
+    duplicate = files_col.find_one({
+        "file_name": file_name,
+        "file_size": file_size,
+        "chat_id": chat_id
+    })
+
+    if duplicate:
+        print(f"Duplicate file skipped: {file_name} ({file_size} bytes)")
+        return  # File already exists
+
     file_doc = {
         "file_name": file_name,
-        "chat_id": message.chat.id,
-        "message_id": message.id,
+        "file_size": file_size,
+        "chat_id": chat_id,
+        "message_id": message_id,
         "language": "English"
     }
     files_col.insert_one(file_doc)
+    print(f"Saved new file: {file_name} ({file_size} bytes)")
 
 @app.on_message(filters.command("storefiles") & filters.user(BOT_OWNER))
 async def store_existing_files(client, message: Message):
