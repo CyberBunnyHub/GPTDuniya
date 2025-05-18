@@ -304,7 +304,7 @@ async def save_file(client, message: Message):
     file_name = message.caption.strip().lower()
     file_size = message.document.file_size if message.document else message.video.file_size
     chat_id = message.chat.id
-    message_id = message_id
+    message_id = message.id  # <-- Fixed here
 
     # Check for duplicates by file_name and file_size
     duplicate = files_col.find_one({
@@ -315,7 +315,7 @@ async def save_file(client, message: Message):
 
     if duplicate:
         print(f"Duplicate file skipped: {file_name} ({file_size} bytes)")
-        return  # File already exists
+        return
 
     file_doc = {
         "file_name": file_name,
