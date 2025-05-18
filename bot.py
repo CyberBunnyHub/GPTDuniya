@@ -211,7 +211,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         }))
 
         if not results:
-            return await query.message.edit_text(f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.", parse_mode=ParseMode.HTML)
+            return await query.message.edit_text(f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.", parse_mode=ParseMode.HTML,reply_markup=markup)
 
         markup = generate_pagination_buttons(
             results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
