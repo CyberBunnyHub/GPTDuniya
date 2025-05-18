@@ -359,5 +359,5 @@ async def store_existing_files(client, message: Message):
 
     await message.reply(f"✅ Done.\nStored: {total} new files.\nSkipped (already in DB): {skipped}")
 
-print("Bot is starting...")
+print("starting...")
 app.run()
