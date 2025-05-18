@@ -309,5 +309,37 @@ async def save_file(client, message: Message):
     }
     files_col.insert_one(file_doc)
 
+@app.on_message(filters.command("storefiles") & filters.user(BOT_OWNER))
+async def store_existing_files(client, message: Message):
+    await message.reply("Starting to scan channel messages...")
+
+    total = 0
+    skipped = 0
+    async for msg in client.get_chat_history(DB_CHANNEL, limit=0):
+        if not (msg.document or msg.video):
+            continue
+        if not msg.caption:
+            continue
+
+        file_name = msg.caption.strip().lower()
+        exists = files_col.find_one({
+            "file_name": file_name,
+            "chat_id": message.chat.id,
+            "message_id": message.id
+        })
+        if exists:
+            skipped += 1
+            continue
+
+        files_col.insert_one({
+            "file_name": file_name,
+            "chat_id": message.chat.id,
+            "message_id": message.id,
+            "language": "English"  # Set default language or parse if needed
+        })
+        total += 1
+
+    await message.reply(f"✅ Done.\nStored: {total} new files.\nSkipped (already in DB): {skipped}")
+
 print("Bot is starting...")
 app.run()
