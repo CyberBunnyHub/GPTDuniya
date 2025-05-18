@@ -122,10 +122,15 @@ async def search_and_track(client, message: Message):
         ])
         return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
 
-    query = message.text.strip().lower()
-    results = list(files_col.find({"file_name": {"$regex": query, "$options": "i"}}))
+    query = message.text.strip()
+    normalized_query = normalize_text(query)
+
+    results = list(files_col.find({
+        "normalized_name": {"$regex": normalized_query, "$options": "i"}
+    }))
+
     if not results:
-        return
+        return  # Be silent if no results
 
     markup = generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id)
     await message.reply(
@@ -296,19 +301,25 @@ async def welcome_group(client, message: Message):
             ])
             await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
+import re
+
+def normalize_text(text):
+    return re.sub(r'\W+', '', text.lower())  # Remove all non-alphanumeric chars and lowercase
+
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
     if not message.caption:
         return
 
-    file_name = message.caption.strip().lower()
+    file_name = message.caption.strip()
+    normalized_name = normalize_text(file_name)
     file_size = message.document.file_size if message.document else message.video.file_size
     chat_id = message.chat.id
-    message_id = message.id  # <-- Fixed here
+    message_id = message.id  # FIXED: this was incorrect before
 
-    # Check for duplicates by file_name and file_size
+    # Check for duplicates by normalized_name and file_size
     duplicate = files_col.find_one({
-        "file_name": file_name,
+        "normalized_name": normalized_name,
         "file_size": file_size,
         "chat_id": chat_id
     })
@@ -319,6 +330,7 @@ async def save_file(client, message: Message):
 
     file_doc = {
         "file_name": file_name,
+        "normalized_name": normalized_name,
         "file_size": file_size,
         "chat_id": chat_id,
         "message_id": message_id,
