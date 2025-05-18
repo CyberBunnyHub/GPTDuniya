@@ -304,7 +304,7 @@ async def save_file(client, message: Message):
     file_name = message.caption.strip().lower()
     file_size = message.document.file_size if message.document else message.video.file_size
     chat_id = message.chat.id
-    message_id = message.id
+    message_id = message_id
 
     # Check for duplicates by file_name and file_size
     duplicate = files_col.find_one({
@@ -343,7 +343,7 @@ async def store_existing_files(client, message: Message):
         exists = files_col.find_one({
             "file_name": file_name,
             "chat_id": message.chat.id,
-            "message_id": message.id
+            "message_id": message_id
         })
         if exists:
             skipped += 1
@@ -352,7 +352,7 @@ async def store_existing_files(client, message: Message):
         files_col.insert_one({
             "file_name": file_name,
             "chat_id": message.chat.id,
-            "message_id": message.id,
+            "message_id": message_id,
             "language": "English"  # Set default language or parse if needed
         })
         total += 1
