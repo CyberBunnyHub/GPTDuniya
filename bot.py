@@ -315,9 +315,9 @@ async def save_file(client, message: Message):
     normalized_name = normalize_text(file_name)
     file_size = message.document.file_size if message.document else message.video.file_size
     chat_id = message.chat.id
-    message_id = message.id  # FIXED: this was incorrect before
+    message_id = message.id
 
-    # Check for duplicates by normalized_name and file_size
+    # Check for duplicates
     duplicate = files_col.find_one({
         "normalized_name": normalized_name,
         "file_size": file_size,
@@ -328,16 +328,17 @@ async def save_file(client, message: Message):
         print(f"Duplicate file skipped: {file_name} ({file_size} bytes)")
         return
 
+    # Save new file
     file_doc = {
         "file_name": file_name,
         "normalized_name": normalized_name,
         "file_size": file_size,
         "chat_id": chat_id,
-        "message_id": message_id,
-        "language": "English"
+        "message_id": message_id
     }
+
     files_col.insert_one(file_doc)
-    print(f"Saved new file: {file_name} ({file_size} bytes)")
+    print(f"Stored file: {file_name} ({file_size} bytes)")
 
 @app.on_message(filters.command("storefiles") & filters.user(BOT_OWNER))
 async def store_existing_files(client, message: Message):
