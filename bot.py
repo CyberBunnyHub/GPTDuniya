@@ -201,7 +201,7 @@ elif data == "back":
         await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
         except:
         await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-
+    
 if data.startswith("langs:"):
     _, query_text, _ = data.split(":", 2)
     buttons = [
