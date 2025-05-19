@@ -214,25 +214,26 @@ async def handle_callbacks(client, query: CallbackQuery):
                 "$options": "i"
             }
         }))
-
-if not results:
-    markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]
-    ])
-    return await query.message.edit_text(
-        f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
-        parse_mode=ParseMode.HTML,
-        reply_markup=markup
-    )
-    
-        markup = generate_pagination_buttons(
-            results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
-        )
-        await query.message.edit_text(
-            f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:", parse_mode=ParseMode.HTML, reply_markup=markup
-        )
-        return await query.answer()
-
+        
+        if not results:
+            markup = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]
+            ])
+            
+            return await query.message.edit_text(
+                f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
+                parse_mode=ParseMode.HTML,
+                reply_markup=markup
+            )
+            
+            markup = generate_pagination_buttons(
+                results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
+            )
+            await query.message.edit_text(
+                f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:", parse_mode=ParseMode.HTML, reply_markup=markup
+            )
+            return await query.answer()
+            
 elif data.startswith("getfiles:"):
     _, query_text, page_str = data.split(":")
     page = int(page_str)
