@@ -40,7 +40,13 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
     total_pages = (len(results) + per_page - 1) // per_page
     start = page * per_page
     end = start + per_page
-    page_data = results[start:end]
+    
+    if start >= len(results):
+        page = 0
+        start = 0
+        end = per_page
+        
+        page_data = results[start:end]
 
     buttons = []
     for doc in page_data:
@@ -123,8 +129,7 @@ async def search_and_track(client, message: Message):
         return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
 
     query = message.text.strip()
-    normalized_query = normalize_text(query)
-
+    normalized_query = normalize_text(query_text)
     results = list(files_col.find({
         "normalized_name": {"$regex": normalized_query, "$options": "i"}
     }))
@@ -143,12 +148,21 @@ async def search_and_track(client, message: Message):
 async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
 
-    if data.startswith(("search:", "movie:")):
-        prefix, page_str, query_text = data.split(":", 2)
-        page = int(page_str)
-        results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
-        markup = generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)
-        return await query.message.edit_reply_markup(markup)
+if data.startswith(("search:", "movie:")):
+    prefix, page_str, query_text = data.split(":", 2)
+    page = int(page_str)
+    normalized_query = normalize_text(query_text)
+    
+    results = list(files_col.find({
+        "normalized_name": {"$regex": normalized_query, "$options": "i"}
+    }))
+    
+    if not results:
+        return await query.answer("No files found.", show_alert=True)
+
+    markup = generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)
+    await query.message.edit_reply_markup(markup)
+    return await query.answer()
 
     elif data.startswith("deletefile:"):
         file_id = data.split(":")[1]
