@@ -54,9 +54,9 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
 
     if results:
         buttons.append([
-            InlineKeyboardButton("Gᴇᴛ Aʟʟ Fɪʟᴇs", callback_data=f"getfiles:{query}"),
-            InlineKeyboardButton("Lᴀɴɢᴜᴀɢᴇs", callback_data=f"langs:{query}:dummy")
-        ])
+    InlineKeyboardButton("Gᴇᴛ Aʟʟ Fɪʟᴇs", callback_data=f"getfiles:{query}:{page}"),
+    InlineKeyboardButton("Lᴀɴɢᴜᴀɢᴇs", callback_data=f"langs:{query}:dummy")
+])
 
     nav_buttons = []
     if page > 0:
@@ -226,26 +226,33 @@ async def handle_callbacks(client, query: CallbackQuery):
         )
         return await query.answer()
 
-    elif data.startswith("getfiles:"):
-        _, query_text = data.split(":", 1)
-        results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
+elif data.startswith("getfiles:"):
+    _, query_text, page_str = data.split(":")
+    page = int(page_str)
+    per_page = 5  # match your pagination limit
+    start = page * per_page
+    end = start + per_page
 
-        if not results:
-            return await query.answer("No files found.", show_alert=True)
+    results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
+    selected_docs = results[start:end]
 
-        await query.answer("Sending files...", show_alert=False)
+    if not selected_docs:
+        return await query.answer("No files found on this page.", show_alert=True)
 
-        for doc in results[:10]:  # Limit to first 10 files to avoid flooding
-            try:
-                await client.copy_message(
-                    chat_id=query.message.chat.id,
-                    from_chat_id=doc["chat_id"],
-                    message_id=doc["message_id"]
-                )
-                await asyncio.sleep(0.5)  # Small delay to avoid hitting flood limits
-            except Exception as e:
-                print(f"Failed to send file: {e}")
-                continue
+    await query.answer("Sending selected files...", show_alert=False)
+
+    for doc in selected_docs:
+        try:
+            await client.copy_message(
+                chat_id=query.message.chat.id,
+                from_chat_id=doc["chat_id"],
+                message_id=doc["message_id"]
+            )
+            await asyncio.sleep(0.5)
+        except FloodWait as e:
+            await asyncio.sleep(e.value)
+        except Exception as e:
+            print(f"Failed to send file: {e}")                continue
 
     elif data == "about":
         bot_username = (await client.get_me()).username
