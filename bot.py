@@ -188,23 +188,10 @@ elif data == "checksub":
     
 elif data == "noop":
     await query.answer()
-
-elif data == "back":
-    image = random.choice(IMAGE_URLS)
-    caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
-        [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
-        [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
-    ])
-    try:
-        await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
-        except:
-        await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-
-elif data.startswith("langs:"):
-_, query_text, _ = data.split(":", 2)
-    buttons = [
+    
+    if data.startswith("langs:"):
+        _, query_text, _ = data.split(":", 2)
+        buttons = [
         [InlineKeyboardButton(lang, callback_data=f"langselect:{query_text}:{lang}")]
         for lang in PREDEFINED_LANGUAGES
     ]
@@ -244,6 +231,20 @@ elif data.startswith("langselect:"):
             f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:", parse_mode=ParseMode.HTML, reply_markup=markup
         )
         return await query.answer()
+        
+    elif data == "back":
+        image = random.choice(IMAGE_URLS)
+        caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
+        keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
+        [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
+        [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+    ])
+    try:
+        await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
+        except:
+        await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+
     
     elif data.startswith("getfiles:"):
         _, query_text, page_str = data.split(":")
