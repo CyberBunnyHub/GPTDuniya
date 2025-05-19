@@ -194,14 +194,14 @@ elif data == "back":
         except:
         await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
-elif data == "checksub":
-if await check_subscription(client, query.from_user.id):
+ elif data == "checksub":
+ if await check_subscription(client, query.from_user.id):
     await query.message.edit_text("Joined!")
-else:
+ else:
     await query.answer("Please join the updates channel to use this bot.", show_alert=True)
 
-elif data == "noop":
-await query.answer()
+ elif data == "noop":
+ await query.answer()
 
 if data.startswith("langs:"):
     _, query_text, _ = data.split(":", 2)
