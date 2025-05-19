@@ -194,106 +194,105 @@ elif data == "back":
         except:
         await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
-    elif data == "checksub":
-        if await check_subscription(client, query.from_user.id):
-            await query.message.edit_text("Joined!")
-        else:
-            await query.answer("Please join the updates channel to use this bot.", show_alert=True)
+elif data == "checksub":
+if await check_subscription(client, query.from_user.id):
+    await query.message.edit_text("Joined!")
+else:
+    await query.answer("Please join the updates channel to use this bot.", show_alert=True)
 
-    elif data == "noop":
-        await query.answer()
+elif data == "noop":
+await query.answer()
 
-    if data.startswith("langs:"):
-        _, query_text, _ = data.split(":", 2)
+if data.startswith("langs:"):
+    _, query_text, _ = data.split(":", 2)
+    buttons = [
+        [InlineKeyboardButton(lang, callback_data=f"langselect:{query_text}:{lang}")]
+        for lang in PREDEFINED_LANGUAGES
+    ]
+    buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
+    markup = InlineKeyboardMarkup(buttons)
+    await query.message.edit_text(
+        f"Sᴇʟᴇᴄᴛ A Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
+        reply_markup=markup,
+        parse_mode=ParseMode.HTML
+    )
+    return await query.answer()
 
-        buttons = [
-            [InlineKeyboardButton(lang, callback_data=f"langselect:{query_text}:{lang}")]
-            for lang in PREDEFINED_LANGUAGES
-        ]
-        buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
-        markup = InlineKeyboardMarkup(buttons)
+elif data.startswith("langselect:"):
+    _, query_text, selected_lang = data.split(":", 2)
+    results = list(files_col.find({
+        "file_name": {
+            "$regex": f"{query_text}.*\\b{selected_lang}\\b",
+            "$options": "i"
+        }
+    }))
+    
+    if not results:
+        markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]
+        ])
         
+        return await query.message.edit_text(
+            f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=markup
+        )
+        
+        markup = generate_pagination_buttons(
+            results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
+        )
         await query.message.edit_text(
-            f"Sᴇʟᴇᴄᴛ A Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
-            reply_markup=markup,
-            parse_mode=ParseMode.HTML
+            f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:", parse_mode=ParseMode.HTML, reply_markup=markup
         )
         return await query.answer()
     
-    elif data.startswith("langselect:"):
-        _, query_text, selected_lang = data.split(":", 2)
-        results = list(files_col.find({
-            "file_name": {
-                "$regex": f"{query_text}.*\\b{selected_lang}\\b",
-                "$options": "i"
-            }
-        }))
-        
-        if not results:
-            markup = InlineKeyboardMarkup([
-                [InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]
-            ])
+    elif data.startswith("getfiles:"):
+        _, query_text, page_str = data.split(":")
+        page = int(page_str)
+        per_page = 5  # match your pagination limit
+        start = page * per_page
+        end = start + per_page
             
-            return await query.message.edit_text(
-                f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
-                parse_mode=ParseMode.HTML,
-                reply_markup=markup
-            )
+        results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
+        selected_docs = results[start:end]
             
-            markup = generate_pagination_buttons(
-                results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
-            )
-            await query.message.edit_text(
-                f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:", parse_mode=ParseMode.HTML, reply_markup=markup
-            )
-            return await query.answer()
-        
-        elif data.startswith("getfiles:"):
-            _, query_text, page_str = data.split(":")
-            page = int(page_str)
-            per_page = 5  # match your pagination limit
-            start = page * per_page
-            end = start + per_page
-            
-            results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
-            selected_docs = results[start:end]
-            
-            if not selected_docs:
-                return await query.answer("No files found on this page.", show_alert=True)
-                await query.answer("Sending selected files...", show_alert=False)
-                for doc in selected_docs:
+        if not selected_docs:
+            return await query.answer("No files found on this page.", show_alert=True)
+            await query.answer("Sending selected files...", show_alert=False)
+            for doc in selected_docs:
                     
-                    try:
-                        await client.copy_message(
-                            chat_id=query.message.chat.id,
-                            from_chat_id=doc["chat_id"],
-                            message_id=doc["message_id"]
-                        )
-                        await asyncio.sleep(0.5)
-                    except FloodWait as e:
-                        await asyncio.sleep(e.value)
-                    except Exception as e:
-                        print(f"Failed to send file: {e}")
-                        continue
-            elif data == "about":
-                bot_username = (await client.get_me()).username
-                about_text = f"""- - - - - - 🍿About Me - - - - - -
+                try:
+                    await client.copy_message(
+                        chat_id=query.message.chat.id,
+                        from_chat_id=doc["chat_id"],
+                        message_id=doc["message_id"]
+                    )
+                    await asyncio.sleep(0.5)
+                except FloodWait as e:
+                    await asyncio.sleep(e.value)
+                except Exception as e:
+                    print(f"Failed to send file: {e}")
+                continue
+        
+        elif data == "about":
+            bot_username = (await client.get_me()).username
+            about_text = f"""- - - - - - 🍿About Me - - - - - -
 
 -ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
 -ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
 -ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
 -ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>
 """
-                await query.message.edit_text(
-                    about_text,
-                    reply_markup=InlineKeyboardMarkup([
-                        [
-                            InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
-                            InlineKeyboardButton("⟲ Back", callback_data="back")
-                        ]
-                    ]),
-                    parse_mode=ParseMode.HTML
-                )
+            await query.message.edit_text(
+                about_text,
+                reply_markup=InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
+                        InlineKeyboardButton("⟲ Back", callback_data="back")
+                    ]
+                ]),
+                parse_mode=ParseMode.HTML
+            )
                 
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
