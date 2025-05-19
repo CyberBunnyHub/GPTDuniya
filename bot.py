@@ -270,18 +270,17 @@ async def handle_callbacks(client, query: CallbackQuery):
 -ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
 -ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>
 """
-
-        await query.message.edit_text(
-            about_text,
-            reply_markup=InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
-                    InlineKeyboardButton("⟲ Back", callback_data="back")
-                ]
-            ]),
-            parse_mode=ParseMode.HTML
-        )
-            
+                await query.message.edit_text(
+                    about_text,
+                    reply_markup=InlineKeyboardMarkup([
+                        [
+                            InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
+                            InlineKeyboardButton("⟲ Back", callback_data="back")
+                        ]
+                    ]),
+                    parse_mode=ParseMode.HTML
+                )
+                
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
     users = users_col.count_documents({})
