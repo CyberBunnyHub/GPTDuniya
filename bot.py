@@ -245,7 +245,6 @@ elif data.startswith("langselect:"):
         except:
         await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
-    
     elif data.startswith("getfiles:"):
         _, query_text, page_str = data.split(":")
         page = int(page_str)
