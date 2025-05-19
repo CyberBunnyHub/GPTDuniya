@@ -159,20 +159,20 @@ if data.startswith(("search:", "movie:")):
     
     if not results:
         return await query.answer("No files found.", show_alert=True)
+        
+        markup = generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)
+        await query.message.edit_reply_markup(markup)
+        return await query.answer()
 
-    markup = generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)
-    await query.message.edit_reply_markup(markup)
-    return await query.answer()
-
-    elif data.startswith("deletefile:"):
-        file_id = data.split(":")[1]
-        result = files_col.find_one({"_id": ObjectId(file_id)})
-        if result:
-            files_col.delete_one({"_id": ObjectId(file_id)})
-            await query.answer("✅ File deleted.")
-            await query.message.delete()
-        else:
-            await query.answer("❌ File not found.", show_alert=True)
+elif data.startswith("deletefile:"):
+    file_id = data.split(":")[1]
+    result = files_col.find_one({"_id": ObjectId(file_id)})
+    if result:
+        files_col.delete_one({"_id": ObjectId(file_id)})
+        await query.answer("✅ File deleted.")
+        await query.message.delete()
+    else:
+        await query.answer("❌ File not found.", show_alert=True)
 
     elif data == "help":
         await query.message.edit_text(
