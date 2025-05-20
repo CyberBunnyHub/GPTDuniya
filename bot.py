@@ -291,8 +291,8 @@ elif data.startswith("langselect:"):
                 
                 try:
                     await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
-                    except:
-                        await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+                except:
+                    await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
                         
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
