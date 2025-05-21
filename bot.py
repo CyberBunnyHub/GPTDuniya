@@ -204,30 +204,31 @@ async def handle_callbacks(client, query: CallbackQuery):
         )
         return await query.answer()
 
-    elif data.startswith("langselect:"):
-        _, query_text, selected_lang = data.split(":", 2)
-        results = list(files_col.find({
-            "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
-            "language": selected_lang
-        }))
-        
-        if not results:
-            markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
-            return await query.message.edit_text(
-                f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
-                parse_mode=ParseMode.HTML,
-                reply_markup=markup
-            )
-
-        markup = generate_pagination_buttons(
-            results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
-        )
-        await query.message.edit_text(
-            f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
+elif data.startswith("langselect:"):
+    _, query_text, selected_lang = data.split(":", 2)
+    selected_lang = selected_lang.capitalize()  # Fix: ensure correct format
+    results = list(files_col.find({
+        "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
+        "language": selected_lang
+    }))
+    
+    if not results:
+        markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
+        return await query.message.edit_text(
+            f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
             parse_mode=ParseMode.HTML,
             reply_markup=markup
         )
-        return await query.answer()
+
+    markup = generate_pagination_buttons(
+        results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
+    )
+    await query.message.edit_text(
+        f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
+        parse_mode=ParseMode.HTML,
+        reply_markup=markup
+    )
+    return await query.answer()
 
     elif data.startswith("getfiles:"):
         _, query_text, page_str = data.split(":", 2)
