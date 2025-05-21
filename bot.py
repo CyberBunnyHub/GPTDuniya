@@ -205,10 +205,16 @@ async def handle_callbacks(client, query: CallbackQuery):
             parse_mode=ParseMode.HTML
         )
         return await query.answer()
-
+    
     elif data.startswith("langselect:"):
-        _, encoded_query, selected_lang = data.split(":", 2)
-        query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode()
+        parts = data.split(":", 2)
+        if len(parts) < 3:
+            return await query.answer("Invalid language selection.", show_alert=True)
+        
+        _, encoded_query, selected_lang = parts
+    
+    try:
+        query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode
         selected_lang = selected_lang.capitalize()
 
     results = list(files_col.find({
