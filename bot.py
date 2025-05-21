@@ -210,35 +210,35 @@ async def handle_callbacks(client, query: CallbackQuery):
         parts = data.split(":", 2)
         if len(parts) < 3:
             return await query.answer("Invalid language selection.", show_alert=True)
+            
+            _, encoded_query, selected_lang = parts
         
-        _, encoded_query, selected_lang = parts
-    
-    try:
-        query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode
-        selected_lang = selected_lang.capitalize()
-
-    results = list(files_col.find({
-        "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
-        "language": selected_lang
-    }))
-
-    if not results:
-        markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
-        return await query.message.edit_text(
-            f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
-            parse_mode=ParseMode.HTML,
-            reply_markup=markup
-        )
-
-        markup = generate_pagination_buttons(
-            results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
-        )
-        await query.message.edit_text(
-            f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
-            parse_mode=ParseMode.HTML,
-            reply_markup=markup
-        )
-        return await query.answer()
+        try:
+            query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode
+            selected_lang = selected_lang.capitalize()
+            
+            results = list(files_col.find({
+                "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
+                "language": selected_lang
+            }))
+            
+            if not results:
+                markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
+                return await query.message.edit_text(
+                    f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=markup
+                )
+                
+                markup = generate_pagination_buttons(
+                    results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
+                )
+                await query.message.edit_text(
+                    f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=markup
+                )
+                return await query.answer()
     
     elif data.startswith("getfiles:"):
         _, query_text, page_str = data.split(":", 2)
