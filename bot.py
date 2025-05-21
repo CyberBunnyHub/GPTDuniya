@@ -207,7 +207,8 @@ async def handle_callbacks(client, query: CallbackQuery):
     elif data.startswith("langselect:"):
         _, query_text, selected_lang = data.split(":", 2)
         results = list(files_col.find({
-            "file_name": {"$regex": f"(?i).*{query_text}.*{selected_lang}.*"}
+            "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
+            "language": selected_lang
         }))
         
         if not results:
@@ -327,14 +328,11 @@ async def save_file(client, message: Message):
         if not text:
             return "Unknown"
             
-            text = re.sub(r'[\[\]\(\)\.\-_]', ' ', text)  # Replace common separators with space
-            text = text.lower()  # Normalize text
-            
+            text = re.sub(r'[\[\]\(\)\.\-_]', ' ', text).lower()
             languages = ["hindi", "telugu", "tamil", "kannada", "malayalam", "english"]
             for lang in languages:
                 if re.search(rf'\b{lang}\b', text):
                     return lang.capitalize()
-                    
                     return "Unknown"
 
     # Check if file already exists
@@ -344,13 +342,15 @@ async def save_file(client, message: Message):
     })
     if existing:
         return  # Avoid duplicate entry
+        
+        files_col.insert_one({
+            "file_name": file_name,
+            "normalized_name": normalized_name,
+            "language": extract_language(file_name),
+            "chat_id": message.chat.id,
+            "message_id": message.id
+        })
 
-    files_col.insert_one({
-        "file_name": file_name,
-        "normalized_name": normalized_name,
-        "chat_id": message.chat.id,
-        "message_id": message.id
-    })
     if existing:
         return  # Avoid duplicate entry
 
@@ -396,11 +396,10 @@ async def store_existing_files(client, message: Message):
             continue
             files_col.insert_one({
                 "file_name": file_name,
-                "normalized_name": normalize_text(file_name),
-                "file_size": file_size,
+                "normalized_name": normalized_name,
                 "language": extract_language(file_name),
-                "chat_id": msg.chat.id,
-                "message_id": msg.id
+                "chat_id": message.chat.id,
+                "message_id": message.id
             })
             
         total += 1
