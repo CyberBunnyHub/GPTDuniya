@@ -1,6 +1,7 @@
 import asyncio
 import random
 import re
+import base64
 from bson import ObjectId
 from pymongo import MongoClient
 from pyrogram import Client, filters
@@ -193,7 +194,8 @@ async def handle_callbacks(client, query: CallbackQuery):
 
     elif data.startswith("langs:"):
         _, query_text, _ = data.split(":", 2)
-        buttons = [[InlineKeyboardButton(lang, callback_data=f"langselect:{query_text}:{lang}")]
+        encoded_query = base64.urlsafe_b64encode(query_text.encode()).decode()
+        buttons = [[InlineKeyboardButton(lang, callback_data=f"langselect:{encoded_query}:{lang}")]
                    for lang in PREDEFINED_LANGUAGES]
         buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
         markup = InlineKeyboardMarkup(buttons)
@@ -205,8 +207,9 @@ async def handle_callbacks(client, query: CallbackQuery):
         return await query.answer()
     
     elif data.startswith("langselect:"):
-        _, query_text, selected_lang = data.split(":", 2)
-        selected_lang = selected_lang.capitalize()  # Fix: ensure correct format
+        _, encoded_query, selected_lang = data.split(":", 2)
+        query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode()
+        selected_lang = selected_lang.capitalize() 
         results = list(files_col.find({
             "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
             "language": selected_lang
