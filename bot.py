@@ -206,10 +206,9 @@ async def handle_callbacks(client, query: CallbackQuery):
 
     elif data.startswith("langselect:"):
         _, query_text, selected_lang = data.split(":", 2)
-        results = list(files_col.find({
-            "file_name": {"$regex": f"{query_text}.*\\b{selected_lang}\\b", "$options": "i"}
-        }))
-
+results = list(files_col.find({
+    "file_name": {"$regex": f"(?i){query_text}.*{selected_lang}"}
+}))
         if not results:
             markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
             return await query.message.edit_text(
