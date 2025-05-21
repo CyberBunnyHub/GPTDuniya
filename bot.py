@@ -322,26 +322,49 @@ async def save_file(client, message: Message):
         return
     file_name = message.caption.strip()
     normalized_name = normalize_text(file_name)
-    file_size = message.document.file_size if message.document else message.video.file_size
-    chat_id = message.chat.id
-    message_id = message.id
+    def extract_language(text):
+    languages = ["Hindi", "Telugu", "Tamil", "Kannada", "Malayalam", "English"]
+    for lang in languages:
+        if re.search(rf"\b{lang}\b", text, re.IGNORECASE):
+            return lang
+    return "Unknown"
 
-    duplicate = files_col.find_one({
+    # Check if file already exists
+    existing = files_col.find_one({
+        "chat_id": message.chat.id,
+        "message_id": message.id
+    })
+    if existing:
+        return  # Avoid duplicate entry
+
+    files_col.insert_one({
+        "file_name": file_name,
         "normalized_name": normalized_name,
-        "file_size": file_size,
-        "chat_id": chat_id
+        "chat_id": message.chat.id,
+        "message_id": message.id
+    })
+    if existing:
+        return  # Avoid duplicate entry
+
+    files_col.insert_one({
+        "file_name": file_name,
+        "normalized_name": normalized_name,
+        "chat_id": message.chat.id,
+        "message_id": message.id
     })
     if duplicate:
         print(f"Duplicate file skipped: {file_name}")
         return
-
-    file_doc = {
-        "file_name": file_name,
-        "normalized_name": normalized_name,
-        "file_size": file_size,
-        "chat_id": chat_id,
-        "message_id": message_id
-    }
+        
+        file_doc = {
+            "file_name": file_name,
+            "normalized_name": normalized_name,
+            "file_size": file_size,
+            "language": extract_language(file_name),
+            "chat_id": chat_id,
+            "message_id": message_id
+        }
+        
     files_col.insert_one(file_doc)
     print(f"Stored file: {file_name}")
 
@@ -363,13 +386,15 @@ async def store_existing_files(client, message: Message):
         if exists:
             skipped += 1
             continue
-        files_col.insert_one({
-            "file_name": file_name,
-            "normalized_name": normalize_text(file_name),
-            "file_size": file_size,
-            "chat_id": msg.chat.id,
-            "message_id": msg.id
-        })
+            files_col.insert_one({
+                "file_name": file_name,
+                "normalized_name": normalize_text(file_name),
+                "file_size": file_size,
+                "language": extract_language(file_name),
+                "chat_id": msg.chat.id,
+                "message_id": msg.id
+            })
+            
         total += 1
     await message.reply(f"✅ Done.\nStored: {total} new files.\nSkipped (already in DB): {skipped}")
 
