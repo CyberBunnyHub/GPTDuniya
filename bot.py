@@ -317,42 +317,30 @@ async def welcome_group(client, message: Message):
             ])
             await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
+def extract_language(text):
+    text = re.sub(r'[\[\]\(\)\.\-_]', ' ', text).lower()
+    for lang in ["hindi", "telugu", "tamil", "kannada", "malayalam", "english"]:
+        if f" {lang} " in f" {text} ":
+            return lang.capitalize()
+    return "Unknown"
+
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
-    if message.document or message.video:
-        media = message.document or message.video
-        file_name = media.file_name
-        caption = message.caption
-        text = caption or file_name or ""
-        text = re.sub(r'[\[\]\(\)\.\-_]', ' ', text).lower()
-        languages = ["hindi", "telugu", "tamil", "kannada", "malayalam", "english"]
-        
-        for lang in languages:
-            if f" {lang} " in f" {text} ":
-                return lang.capitalize()
-                
-                return "Unknown"
+    media = message.document or message.video
+    file_name = media.file_name or "Unnamed"
+    normalized_name = normalize_text(file_name)
+    language = extract_language(file_name)
 
-    # Check if file already exists
+    # Check for duplicate
     existing = files_col.find_one({
         "chat_id": message.chat.id,
         "message_id": message.id
     })
     if existing:
-        return  # Avoid duplicate entry
-        
-        files_col.insert_one({
-            "file_name": file_name,
-            "normalized_name": normalized_name,
-            "language": extract_language(file_name),
-            "chat_id": message.chat.id,
-            "message_id": message.id
-        })
+        print(f"Duplicate skipped: {file_name}")
+        return
 
-    if existing:
-        return  # Avoid duplicate entry
-
-    language = extract_language(file_name)
+    # Insert to DB
     files_col.insert_one({
         "file_name": file_name,
         "normalized_name": normalized_name,
@@ -360,33 +348,22 @@ async def save_file(client, message: Message):
         "chat_id": message.chat.id,
         "message_id": message.id
     })
-
-    if duplicate:
-        print(f"Duplicate file skipped: {file_name}")
-        return
-        
-        file_doc = {
-            "file_name": file_name,
-            "normalized_name": normalized_name,
-            "file_size": file_size,
-            "language": extract_language(file_name),
-            "chat_id": chat_id,
-            "message_id": message_id
-        }
-        
-    files_col.insert_one(file_doc)
     print(f"Stored file: {file_name}")
 
 @app.on_message(filters.command("storefiles") & filters.user(BOT_OWNER))
 async def store_existing_files(client, message: Message):
     await message.reply("Starting to scan channel messages...")
-    total = 0
-    skipped = 0
+    total, skipped = 0, 0
+
     async for msg in client.get_chat_history(DB_CHANNEL):
-        if not (msg.document or msg.video) or not msg.caption:
+        media = msg.document or msg.video
+        if not media:
             continue
-        file_name = msg.caption.strip()
-        file_size = msg.document.file_size if msg.document else msg.video.file_size
+        file_name = media.file_name or "Unnamed"
+        normalized_name = normalize_text(file_name)
+        file_size = media.file_size
+        language = extract_language(file_name)
+
         exists = files_col.find_one({
             "file_name": file_name,
             "file_size": file_size,
@@ -395,16 +372,17 @@ async def store_existing_files(client, message: Message):
         if exists:
             skipped += 1
             continue
-            files_col.insert_one({
-                "file_name": file_name,
-                "normalized_name": normalized_name,
-                "language": extract_language(file_name),
-                "chat_id": message.chat.id,
-                "message_id": message.id
-            })
-            
+
+        files_col.insert_one({
+            "file_name": file_name,
+            "normalized_name": normalized_name,
+            "language": language,
+            "chat_id": msg.chat.id,
+            "message_id": msg.id
+        })
         total += 1
-    await message.reply(f"✅ Done.\nStored: {total} new files.\nSkipped (already in DB): {skipped}")
+
+    await message.reply(f"✅ Done.\nStored: {total} new files.\nSkipped: {skipped}")
 
 print("starting...")
 app.run()
