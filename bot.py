@@ -318,8 +318,9 @@ async def welcome_group(client, message: Message):
             await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
 def extract_language(text):
-    text = re.sub(r'[\[\]\(\)\.\-_]', ' ', text).lower()
-    for lang in ["hindi", "telugu", "tamil", "kannada", "malayalam", "english"]:
+    text = text.lower()
+    languages = ["hindi", "telugu", "tamil", "kannada", "malayalam", "english"]
+    for lang in languages:
         if f" {lang} " in f" {text} ":
             return lang.capitalize()
     return "Unknown"
@@ -327,9 +328,11 @@ def extract_language(text):
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
     media = message.document or message.video
-    file_name = media.file_name or "Unnamed"
+    file_name = media.file_name
+    caption = message.caption or ""
+    combined_text = f"{file_name} {caption}".lower()
     normalized_name = normalize_text(file_name)
-    language = extract_language(file_name)
+    language = extract_language(combined_text)
 
     # Check for duplicate
     existing = files_col.find_one({
@@ -337,10 +340,9 @@ async def save_file(client, message: Message):
         "message_id": message.id
     })
     if existing:
-        print(f"Duplicate skipped: {file_name}")
+        print(f"Skipped duplicate: {file_name}")
         return
 
-    # Insert to DB
     files_col.insert_one({
         "file_name": file_name,
         "normalized_name": normalized_name,
@@ -348,7 +350,7 @@ async def save_file(client, message: Message):
         "chat_id": message.chat.id,
         "message_id": message.id
     })
-    print(f"Stored file: {file_name}")
+    print(f"Stored file: {file_name} | Language: {language}")
 
 @app.on_message(filters.command("storefiles") & filters.user(BOT_OWNER))
 async def store_existing_files(client, message: Message):
