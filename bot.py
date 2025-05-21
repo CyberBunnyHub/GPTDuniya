@@ -319,26 +319,19 @@ async def welcome_group(client, message: Message):
 
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
-    if not message.caption:
-        return
-    file_name = message.caption.strip()
-    normalized_name = normalize_text(file_name)
-    
-    def extract_language(text):
-        if not text:
-            return "Unknown"
-            
-    # Normalize
-    text = re.sub(r'[\[\]\(\)\.\-_]', ' ', text).lower()
-
-    # List of known languages
-    languages = ["hindi", "telugu", "tamil", "kannada", "malayalam", "english"]
-    
-    for lang in languages:
-        if f" {lang} " in f" {text} ":
-            return lang.capitalize()
-            
-            return "Unknown"
+    if message.document or message.video:
+        media = message.document or message.video
+        file_name = media.file_name
+        caption = message.caption
+        text = caption or file_name or ""
+        text = re.sub(r'[\[\]\(\)\.\-_]', ' ', text).lower()
+        languages = ["hindi", "telugu", "tamil", "kannada", "malayalam", "english"]
+        
+        for lang in languages:
+            if f" {lang} " in f" {text} ":
+                return lang.capitalize()
+                
+                return "Unknown"
 
     # Check if file already exists
     existing = files_col.find_one({
