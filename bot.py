@@ -324,11 +324,18 @@ async def save_file(client, message: Message):
     normalized_name = normalize_text(file_name)
     
     def extract_language(text):
-        languages = ["Hindi", "Telugu", "Tamil", "Kannada", "Malayalam", "English"]
-        for lang in languages:
-            if re.search(rf"\b{lang}\b", text, re.IGNORECASE):
-                return lang
-                return "Unknown"
+        if not text:
+            return "Unknown"
+            
+            text = re.sub(r'[\[\]\(\)\.\-_]', ' ', text)  # Replace common separators with space
+            text = text.lower()  # Normalize text
+            
+            languages = ["hindi", "telugu", "tamil", "kannada", "malayalam", "english"]
+            for lang in languages:
+                if re.search(rf'\b{lang}\b', text):
+                    return lang.capitalize()
+                    
+                    return "Unknown"
 
     # Check if file already exists
     existing = files_col.find_one({
