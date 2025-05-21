@@ -239,31 +239,31 @@ async def handle_callbacks(client, query: CallbackQuery):
                         reply_markup=markup
                     )
                     return await query.answer()
-    
-    elif data.startswith("getfiles:"):
-        _, query_text, page_str = data.split(":", 2)
-        page = int(page_str)
-        per_page = 5
-        results = list(files_col.find({"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}))
-        selected_docs = results[page * per_page: (page + 1) * per_page]
+                
+                elif data.startswith("getfiles:"):
+                    _, query_text, page_str = data.split(":", 2)
+                    page = int(page_str)
+                    per_page = 5
+                    results = list(files_col.find({"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}))
+                    selected_docs = results[page * per_page: (page + 1) * per_page]
 
-        if not selected_docs:
-            return await query.answer("No files found on this page.", show_alert=True)
-
-        await query.answer("Sending selected files...", show_alert=False)
-        for doc in selected_docs:
-            try:
-                await client.copy_message(
-                    chat_id=query.message.chat.id,
-                    from_chat_id=doc["chat_id"],
-                    message_id=doc["message_id"]
-                )
-                await asyncio.sleep(0.5)
-            except FloodWait as e:
-                await asyncio.sleep(e.value)
-            except Exception as e:
-                print(f"Failed to send file: {e}")
-
+                    if not selected_docs:
+                        return await query.answer("No files found on this page.", show_alert=True)
+                        
+                        await query.answer("Sending selected files...", show_alert=False)
+                        for doc in selected_docs:
+                            try:
+                                await client.copy_message(
+                                chat_id=query.message.chat.id,
+                                from_chat_id=doc["chat_id"],
+                                message_id=doc["message_id"]
+                                )
+                                await asyncio.sleep(0.5)
+                            except FloodWait as e:
+                                await asyncio.sleep(e.value)
+                            except Exception as e:
+                                print(f"Failed to send file: {e}")
+                                
     elif data == "about":
         bot_username = (await client.get_me()).username
         about_text = f"""- - - - - - 🍿About Me - - - - - -
