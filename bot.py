@@ -328,12 +328,17 @@ async def save_file(client, message: Message):
         if not text:
             return "Unknown"
             
-            text = re.sub(r'[\[\]\(\)\.\-_]', ' ', text).lower()
-            languages = ["hindi", "telugu", "tamil", "kannada", "malayalam", "english"]
-            for lang in languages:
-                if re.search(rf'\b{lang}\b', text):
-                    return lang.capitalize()
-                    return "Unknown"
+    # Normalize
+    text = re.sub(r'[\[\]\(\)\.\-_]', ' ', text).lower()
+
+    # List of known languages
+    languages = ["hindi", "telugu", "tamil", "kannada", "malayalam", "english"]
+    
+    for lang in languages:
+        if f" {lang} " in f" {text} ":
+            return lang.capitalize()
+            
+            return "Unknown"
 
     # Check if file already exists
     existing = files_col.find_one({
@@ -354,12 +359,15 @@ async def save_file(client, message: Message):
     if existing:
         return  # Avoid duplicate entry
 
+    language = extract_language(file_name)
     files_col.insert_one({
         "file_name": file_name,
         "normalized_name": normalized_name,
+        "language": language,
         "chat_id": message.chat.id,
         "message_id": message.id
     })
+
     if duplicate:
         print(f"Duplicate file skipped: {file_name}")
         return
