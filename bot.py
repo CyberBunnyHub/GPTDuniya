@@ -207,7 +207,7 @@ async def handle_callbacks(client, query: CallbackQuery):
     elif data.startswith("langselect:"):
         _, query_text, selected_lang = data.split(":", 2)
         results = list(files_col.find({
-            "file_name": {"$regex": f"(?i){query_text}.*{selected_lang}"}
+            "file_name": {"$regex": f"(?i).*{query_text}.*{selected_lang}.*"}
         }))
         
         if not results:
@@ -229,7 +229,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         return await query.answer()
 
     elif data.startswith("getfiles:"):
-        _, query_text, page_str = data.split(":")
+        _, query_text, page_str = data.split(":", 2)
         page = int(page_str)
         per_page = 5
         results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
