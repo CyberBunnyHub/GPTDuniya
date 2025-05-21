@@ -214,7 +214,6 @@ async def handle_callbacks(client, query: CallbackQuery):
             "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
             "language": selected_lang
         }))
-        
         if not results:
             markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
             return await query.message.edit_text(
@@ -237,7 +236,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         _, query_text, page_str = data.split(":", 2)
         page = int(page_str)
         per_page = 5
-        results = list(files_col.find({"file_name": {"$regex": query_text, "$options": "i"}}))
+        results = list(files_col.find({"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}))
         selected_docs = results[page * per_page: (page + 1) * per_page]
 
         if not selected_docs:
