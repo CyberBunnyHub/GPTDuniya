@@ -322,12 +322,13 @@ async def save_file(client, message: Message):
         return
     file_name = message.caption.strip()
     normalized_name = normalize_text(file_name)
+    
     def extract_language(text):
-    languages = ["Hindi", "Telugu", "Tamil", "Kannada", "Malayalam", "English"]
-    for lang in languages:
-        if re.search(rf"\b{lang}\b", text, re.IGNORECASE):
-            return lang
-    return "Unknown"
+        languages = ["Hindi", "Telugu", "Tamil", "Kannada", "Malayalam", "English"]
+        for lang in languages:
+            if re.search(rf"\b{lang}\b", text, re.IGNORECASE):
+                return lang
+                return "Unknown"
 
     # Check if file already exists
     existing = files_col.find_one({
