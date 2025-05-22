@@ -215,6 +215,23 @@ async def handle_callbacks(client, query: CallbackQuery):
                 await asyncio.sleep(e.value)
             except Exception as e:
                 print(f"Failed to send file: {e}")
+
+        elif data == "about":
+        bot_username = (await client.get_me()).username
+        about_text = f"""- - - - - - 🍿About Me - - - - - -
+-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
+-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
+-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
+-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>
+"""
+        await query.message.edit_text(
+            about_text,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
+                 InlineKeyboardButton("⟲ Back", callback_data="back")]
+            ]),
+            parse_mode=ParseMode.HTML
+        )
     
     elif data == "back":
         image = random.choice(IMAGE_URLS)
@@ -283,24 +300,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         except Exception as e:
             print("Language selection error:", e)
             return await query.answer("Something went wrong.", show_alert=True)
-
-    elif data == "about":
-        bot_username = (await client.get_me()).username
-        about_text = f"""- - - - - - 🍿About Me - - - - - -
--ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
--ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
--ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
--ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>
-"""
-        await query.message.edit_text(
-            about_text,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
-                 InlineKeyboardButton("⟲ Back", callback_data="back")]
-            ]),
-            parse_mode=ParseMode.HTML
-        )
-
+            
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
     users = users_col.count_documents({})
