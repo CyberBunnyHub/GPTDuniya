@@ -147,11 +147,12 @@ async def search_and_track(client, message: Message):
         reply_markup=markup,
         parse_mode=ParseMode.HTML
     )
-    @app.on_callback_query()
-    async def handle_callbacks(client, query: CallbackQuery):
+
+@app.on_callback_query()
+async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
 
-    async def handle_search_or_movie():
+    if data.startswith(("search:", "movie:")):
         prefix, page_str, query_text = data.split(":", 2)
         page = int(page_str)
         normalized_query = normalize_text(query_text)
@@ -164,32 +165,32 @@ async def search_and_track(client, message: Message):
 
         markup = generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)
         await query.message.edit_reply_markup(markup)
-        await query.answer()
+        return await query.answer()
 
-    async def handle_delete_file():
+    elif data.startswith("deletefile:"):
         file_id = data.split(":")[1]
         result = files_col.find_one({"_id": ObjectId(file_id)})
         if result:
             files_col.delete_one({"_id": ObjectId(file_id)})
             await query.answer("✅ File deleted.")
-            await query.message.delete()
+            return await query.message.delete()
         else:
-            await query.answer("❌ File not found.", show_alert=True)
+            return await query.answer("❌ File not found.", show_alert=True)
 
-    async def handle_help():
-        await query.message.edit_text(
+    elif data == "help":
+        return await query.message.edit_text(
             "Welcome To My Store!\n\n<blockquote>Note: Under Construction...🚧</blockquote>",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data="back")]]),
             parse_mode=ParseMode.HTML
         )
 
-    async def handle_check_subscription():
+    elif data == "checksub":
         if await check_subscription(client, query.from_user.id):
-            await query.message.edit_text("Joined!")
+            return await query.message.edit_text("Joined!")
         else:
-            await query.answer("Please join the updates channel to use this bot.", show_alert=True)
+            return await query.answer("Please join the updates channel to use this bot.", show_alert=True)
 
-    async def handle_get_files():
+    elif data.startswith("getfiles:"):
         _, query_text, page_str = data.split(":", 2)
         page = int(page_str)
         per_page = 5
@@ -199,7 +200,7 @@ async def search_and_track(client, message: Message):
         if not selected_docs:
             return await query.answer("No files found on this page.", show_alert=True)
 
-        await query.answer("Sending selected files...", show_alert=False)
+        await query.answer("Sending selected files...")
         for doc in selected_docs:
             try:
                 await client.copy_message(
@@ -213,7 +214,7 @@ async def search_and_track(client, message: Message):
             except Exception as e:
                 print(f"Failed to send file: {e}")
 
-    async def handle_about():
+    elif data == "about":
         bot_username = (await client.get_me()).username
         about_text = f"""- - - - - - 🍿About Me - - - - - -
 -ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
@@ -221,7 +222,7 @@ async def search_and_track(client, message: Message):
 -ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
 -ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>
 """
-        await query.message.edit_text(
+        return await query.message.edit_text(
             about_text,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
@@ -230,7 +231,7 @@ async def search_and_track(client, message: Message):
             parse_mode=ParseMode.HTML
         )
 
-    async def handle_back():
+    elif data == "back":
         image = random.choice(IMAGE_URLS)
         caption = random.choice(CAPTIONS).format(
             user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>'
@@ -241,11 +242,11 @@ async def search_and_track(client, message: Message):
             [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
         ])
         try:
-            await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
+            return await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
         except:
-            await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+            return await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
-    async def handle_language_list():
+    elif data.startswith("langs:"):
         _, query_text, _ = data.split(":", 2)
         encoded_query = base64.urlsafe_b64encode(query_text.encode()).decode()
         buttons = [[InlineKeyboardButton(lang, callback_data=f"langselect:{encoded_query}:{lang}")]
@@ -257,9 +258,9 @@ async def search_and_track(client, message: Message):
             reply_markup=markup,
             parse_mode=ParseMode.HTML
         )
-        await query.answer()
+        return await query.answer()
 
-    async def handle_language_select():
+    elif data.startswith("langselect:"):
         parts = data.split(":", 2)
         if len(parts) < 3:
             return await query.answer("Invalid language selection.", show_alert=True)
@@ -290,34 +291,13 @@ async def search_and_track(client, message: Message):
                 parse_mode=ParseMode.HTML,
                 reply_markup=markup
             )
-            await query.answer()
+            return await query.answer()
         except Exception as e:
             print("Language selection error:", e)
-            await query.answer("Something went wrong.", show_alert=True)
+            return await query.answer("Something went wrong.", show_alert=True)
 
-    # Dispatcher
-    if data.startswith(("search:", "movie:")):
-        await handle_search_or_movie()
-    elif data.startswith("deletefile:"):
-        await handle_delete_file()
-    elif data == "help":
-        await handle_help()
-    elif data == "checksub":
-        await handle_check_subscription()
-    elif data == "noop":
-        await query.answer()
-    elif data.startswith("getfiles:"):
-        await handle_get_files()
-    elif data == "about":
-        await handle_about()
-    elif data == "back":
-        await handle_back()
-    elif data.startswith("langs:"):
-        await handle_language_list()
-    elif data.startswith("langselect:"):
-        await handle_language_select()
     else:
-        await query.answer("Unknown action.", show_alert=True)
+        return await query.answer("Unknown action.", show_alert=True)
         
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
