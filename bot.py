@@ -6,6 +6,7 @@ from bson import ObjectId
 from pymongo import MongoClient
 from pyrogram import Client, filters
 from pyrogram.enums import ParseMode
+from pyrogram.errors import MessageNotModified
 from pyrogram.types import (
     Message, InlineKeyboardMarkup, InlineKeyboardButton,
     CallbackQuery, InputMediaPhoto
@@ -243,12 +244,15 @@ async def handle_callbacks(client, query: CallbackQuery):
                    for lang in PREDEFINED_LANGUAGES]
         buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
         markup = InlineKeyboardMarkup(buttons)
-        await query.message.edit_text(
+        try:
+            await query.message.edit_text(
             f"Sᴇʟᴇᴄᴛ A Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
             reply_markup=markup,
             parse_mode=ParseMode.HTML
-        )
-        return await query.answer()
+            )
+        except MessageNotModified:
+            pass
+            return await query.answer()
 
     elif data.startswith("langselect:"):
         parts = data.split(":", 2)
