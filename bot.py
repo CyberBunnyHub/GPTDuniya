@@ -298,20 +298,18 @@ async def handle_callbacks(client, query: CallbackQuery):
                         reply_markup=markup
                     )
                     
-        # FIX: Move this before the return
-            markup = generate_pagination_buttons(
-                results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id, selected_lang
-            )
-            
-            await query.message.edit_text(
-                f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
-                parse_mode=ParseMode.HTML,
-                reply_markup=markup
-            )
-            return await query.answer()
-except Exception as e:
-print("Language selection error:", e)
-return await query.answer("Something went wrong.", show_alert=True)
+                    markup = generate_pagination_buttons(
+                        results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id, selected_lang
+                    )
+                    await query.message.edit_text(
+                        f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
+                        parse_mode=ParseMode.HTML,
+                        reply_markup=markup
+                    )
+                    return await query.answer()
+            except Exception as e:
+                print("Language selection error:", e)
+                return await query.answer("Something went wrong.", show_alert=True)
  
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
