@@ -215,7 +215,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 await asyncio.sleep(e.value)
             except Exception as e:
                 print(f"Failed to send file: {e}")
-
+    
     elif data == "back":
         image = random.choice(IMAGE_URLS)
         caption = random.choice(CAPTIONS).format(
@@ -232,7 +232,7 @@ async def handle_callbacks(client, query: CallbackQuery):
     except:
         await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
-    elif data == "about":
+elif data == "about":
         bot_username = (await client.get_me()).username
         about_text = f"""- - - - - - 🍿About Me - - - - - -
 -ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
