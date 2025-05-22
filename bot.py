@@ -264,6 +264,19 @@ async def handle_callbacks(client, query: CallbackQuery):
                             except Exception as e:
                                 print(f"Failed to send file: {e}")
                     
+                    elif data == "back":
+                        image = random.choice(IMAGE_URLS)
+                        caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
+                        keyboard = InlineKeyboardMarkup([
+                            [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
+                            [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
+                            [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+                        ])
+                        try:
+                            await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
+                            except:
+                                await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+                    
                     elif data == "about":
                         bot_username = (await client.get_me()).username
                         about_text = f"""- - - - - - 🍿About Me - - - - - -
@@ -280,20 +293,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                             ]),
                             parse_mode=ParseMode.HTML
                         )
-                    
-                    elif data == "back":
-                        image = random.choice(IMAGE_URLS)
-                        caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
-                        keyboard = InlineKeyboardMarkup([
-                            [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
-                            [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
-                            [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
-                        ])
-                        try:
-                            await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
-                            except:
-                                await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-                                
+                        
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
     users = users_col.count_documents({})
