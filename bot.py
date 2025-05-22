@@ -189,29 +189,21 @@ async def handle_callbacks(client, query: CallbackQuery):
         else:
             return await query.answer("Please join the updates channel to use this bot.", show_alert=True)
         
-    elif data.startswith("getfiles:"):
-        _, query_with_lang, page_str = data.split(":", 2)
-        page = int(page_str)
+    elif callback_data.startswith("getfiles:"):
+        data = callback_data.split(":")[1]
+        query_text, selected_lang_page = data.split("|")
+        selected_lang, page = selected_lang_page.split(":")
+        page = int(page)
         
-        if "|" in query_with_lang:
-            query_text, selected_lang = query_with_lang.split("|", 1)
-        else:
-            query_text, selected_lang = query_with_lang, "All"
-            query_filter = {"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}
-            if selected_lang != "All":
-                query_filter["language"] = selected_lang
-                
-                results = list(files_col.find(query_filter))
-                
-                if not results:
-                    await query.answer("No matching files found.", show_alert=True)
-                    return
-        
+        query_filter = {"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}
+        if selected_lang != "All":
+            query_filter["language"] = selected_lang
+            
+            results = list(files_col.find(query_filter))  # <--- Make sure this is here
+            # Now this is safe
         for file in results:
-            await send_file_by_id(client, query.from_user.id, file["file_id"])
-            await asyncio.sleep(0.5)
-            await query.answer()
-
+            ...
+        
     elif data == "about":
         bot_username = (await client.get_me()).username
         about_text = f"""- - - - - - 🍿About Me - - - - - -
