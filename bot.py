@@ -149,6 +149,7 @@ async def search_and_track(client, message: Message):
 
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
+    callback_data = callback_query.data
     data = query.data
 
     if data.startswith(("search:", "movie:")):
