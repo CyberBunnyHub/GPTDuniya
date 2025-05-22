@@ -191,41 +191,28 @@ async def handle_callbacks(client, query: CallbackQuery):
             return await query.answer("Please join the updates channel to use this bot.", show_alert=True)
 
     elif data.startswith("getfiles:"):
-        parts = data.split(":", 2)
-        if len(parts) < 3:
-            return await query.answer("Invalid selection.", show_alert=True)
-            
-            _, encoded_query, selected_lang = parts
+        _, query_text, page_str = data.split(":", 2)
+        page = int(page_str)
+        per_page = 5
+        results = list(files_col.find({"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}))
+        selected_docs = results[page * per_page: (page + 1) * per_page]
+
+        if not selected_docs:
+            return await query.answer("No files found on this page.", show_alert=True)
+
+        await query.answer("Sending selected files...")
+        for doc in selected_docs:
             try:
-                query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode()
-                selected_lang = selected_lang.capitalize()
-                
-                results = list(files_col.find({
-                    "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
-                    "language": selected_lang
-                }))
-                
-                if not results:
-                    markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
-                    return await query.message.edit_text(
-                        f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
-                        parse_mode=ParseMode.HTML,
-                        reply_markup=markup
-                    )
-                    
-                    for result in results:
-                        file_id = result["file_id"]
-                        caption = result.get("caption", "")
-                        await query.message.reply_cached_media(
-                            file_id,
-                            caption=caption
-                        )
-                        
-                        await query.answer()
-                        await query.message.delete()
+                await client.copy_message(
+                    chat_id=query.message.chat.id,
+                    from_chat_id=doc["chat_id"],
+                    message_id=doc["message_id"]
+                )
+                await asyncio.sleep(0.5)
+            except FloodWait as e:
+                await asyncio.sleep(e.value)
             except Exception as e:
-                print("Get files language selection error:", e)
-                return await query.answer("Something went wrong.", show_alert=True)
+                print(f"Failed to send file: {e}")
 
     elif data == "about":
         bot_username = (await client.get_me()).username
@@ -266,51 +253,52 @@ async def handle_callbacks(client, query: CallbackQuery):
                    for lang in PREDEFINED_LANGUAGES]
         buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
         markup = InlineKeyboardMarkup(buttons)
-        try:
-            await query.message.edit_text(
+        await query.message.edit_text(
             f"Sᴇʟᴇᴄᴛ A Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
             reply_markup=markup,
             parse_mode=ParseMode.HTML
-            )
-        except MessageNotModified:
-            pass
-            return await query.answer()
+        )
+        return await query.answer()
 
     elif data.startswith("langselect:"):
         parts = data.split(":", 2)
         if len(parts) < 3:
             return await query.answer("Invalid language selection.", show_alert=True)
-            _, encoded_query, selected_lang = parts
-            try:
-                query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode()
-                selected_lang = selected_lang.capitalize()
+
+        _, encoded_query, selected_lang = parts
+        try:
+            query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode()
+            selected_lang = selected_lang.capitalize()
+
+            results = list(files_col.find({
+                "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
+                "language": selected_lang
+            }))
+
+            if not results:
+                markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
+                return await query.message.edit_text(
+                    f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=markup
+                )
+
+            markup = generate_pagination_buttons(
+                results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
+            )
+            await query.message.edit_text(
+                f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
+                parse_mode=ParseMode.HTML,
+                reply_markup=markup
+            )
+            return await query.answer()
+        except Exception as e:
+            print("Language selection error:", e)
+            return await query.answer("Something went wrong.", show_alert=True)
+
+    else:
+        return await query.answer("Unknown action.", show_alert=True)
                 
-                results = list(files_col.find({
-                    "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
-                    "language": selected_lang
-                }))
-                
-                if not results:
-                    markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
-                    return await query.message.edit_text(
-                        f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
-                        parse_mode=ParseMode.HTML,
-                        reply_markup=markup
-                    )
-                    
-                    markup = generate_pagination_buttons(
-                        results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id, selected_lang
-                    )
-                    await query.message.edit_text(
-                        f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
-                        parse_mode=ParseMode.HTML,
-                        reply_markup=markup
-                    )
-                    return await query.answer()
-            except Exception as e:
-                print("Language selection error:", e)
-                return await query.answer("Something went wrong.", show_alert=True)
- 
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
     users = users_col.count_documents({})
