@@ -318,7 +318,7 @@ async def track_group(client, message: Message):
     )
 @app.on_message(filters.new_chat_members)
 async def welcome_group(client, message: Message):
-    pass for user in message.new_chat_members:
+    for user in message.new_chat_members:
         if user.id == (await client.get_me()).id:
             group_title = message.chat.title
             group_link = f"https://t.me/c/{str(message.chat.id)[4:]}" if str(message.chat.id).startswith("-100") else "https://t.me/"
