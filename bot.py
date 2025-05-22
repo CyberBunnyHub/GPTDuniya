@@ -190,7 +190,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             return await query.answer("Please join the updates channel to use this bot.", show_alert=True)
         
     elif data.startswith("getfiles:"):
-        data = callback_data.split(":")[1]
+        data = query.data.split(":")[1]
         query_text, selected_lang_page = data.split("|")
         selected_lang, page = selected_lang_page.split(":")
         page = int(page)
