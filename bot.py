@@ -147,12 +147,178 @@ async def search_and_track(client, message: Message):
         reply_markup=markup,
         parse_mode=ParseMode.HTML
     )
+    @app.on_callback_query()
+    async def handle_callbacks(client, query: CallbackQuery):
+    data = query.data
 
-@app.on_callback_query()
-async def handle_callbacks(client, query: CallbackQuery):
-    # Omitted for brevity - your callback handlers were fine
-    ...
+    async def handle_search_or_movie():
+        prefix, page_str, query_text = data.split(":", 2)
+        page = int(page_str)
+        normalized_query = normalize_text(query_text)
+        results = list(files_col.find({
+            "normalized_name": {"$regex": normalized_query, "$options": "i"}
+        }))
 
+        if not results:
+            return await query.answer("No files found.", show_alert=True)
+
+        markup = generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)
+        await query.message.edit_reply_markup(markup)
+        await query.answer()
+
+    async def handle_delete_file():
+        file_id = data.split(":")[1]
+        result = files_col.find_one({"_id": ObjectId(file_id)})
+        if result:
+            files_col.delete_one({"_id": ObjectId(file_id)})
+            await query.answer("✅ File deleted.")
+            await query.message.delete()
+        else:
+            await query.answer("❌ File not found.", show_alert=True)
+
+    async def handle_help():
+        await query.message.edit_text(
+            "Welcome To My Store!\n\n<blockquote>Note: Under Construction...🚧</blockquote>",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data="back")]]),
+            parse_mode=ParseMode.HTML
+        )
+
+    async def handle_check_subscription():
+        if await check_subscription(client, query.from_user.id):
+            await query.message.edit_text("Joined!")
+        else:
+            await query.answer("Please join the updates channel to use this bot.", show_alert=True)
+
+    async def handle_get_files():
+        _, query_text, page_str = data.split(":", 2)
+        page = int(page_str)
+        per_page = 5
+        results = list(files_col.find({"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}))
+        selected_docs = results[page * per_page: (page + 1) * per_page]
+
+        if not selected_docs:
+            return await query.answer("No files found on this page.", show_alert=True)
+
+        await query.answer("Sending selected files...", show_alert=False)
+        for doc in selected_docs:
+            try:
+                await client.copy_message(
+                    chat_id=query.message.chat.id,
+                    from_chat_id=doc["chat_id"],
+                    message_id=doc["message_id"]
+                )
+                await asyncio.sleep(0.5)
+            except FloodWait as e:
+                await asyncio.sleep(e.value)
+            except Exception as e:
+                print(f"Failed to send file: {e}")
+
+    async def handle_about():
+        bot_username = (await client.get_me()).username
+        about_text = f"""- - - - - - 🍿About Me - - - - - -
+-ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
+-ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
+-ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
+-ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>
+"""
+        await query.message.edit_text(
+            about_text,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
+                 InlineKeyboardButton("⟲ Back", callback_data="back")]
+            ]),
+            parse_mode=ParseMode.HTML
+        )
+
+    async def handle_back():
+        image = random.choice(IMAGE_URLS)
+        caption = random.choice(CAPTIONS).format(
+            user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>'
+        )
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
+            [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
+            [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+        ])
+        try:
+            await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
+        except:
+            await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+
+    async def handle_language_list():
+        _, query_text, _ = data.split(":", 2)
+        encoded_query = base64.urlsafe_b64encode(query_text.encode()).decode()
+        buttons = [[InlineKeyboardButton(lang, callback_data=f"langselect:{encoded_query}:{lang}")]
+                   for lang in PREDEFINED_LANGUAGES]
+        buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
+        markup = InlineKeyboardMarkup(buttons)
+        await query.message.edit_text(
+            f"Sᴇʟᴇᴄᴛ A Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
+            reply_markup=markup,
+            parse_mode=ParseMode.HTML
+        )
+        await query.answer()
+
+    async def handle_language_select():
+        parts = data.split(":", 2)
+        if len(parts) < 3:
+            return await query.answer("Invalid language selection.", show_alert=True)
+
+        _, encoded_query, selected_lang = parts
+        try:
+            query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode()
+            selected_lang = selected_lang.capitalize()
+
+            results = list(files_col.find({
+                "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
+                "language": selected_lang
+            }))
+
+            if not results:
+                markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
+                return await query.message.edit_text(
+                    f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=markup
+                )
+
+            markup = generate_pagination_buttons(
+                results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
+            )
+            await query.message.edit_text(
+                f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
+                parse_mode=ParseMode.HTML,
+                reply_markup=markup
+            )
+            await query.answer()
+        except Exception as e:
+            print("Language selection error:", e)
+            await query.answer("Something went wrong.", show_alert=True)
+
+    # Dispatcher
+    if data.startswith(("search:", "movie:")):
+        await handle_search_or_movie()
+    elif data.startswith("deletefile:"):
+        await handle_delete_file()
+    elif data == "help":
+        await handle_help()
+    elif data == "checksub":
+        await handle_check_subscription()
+    elif data == "noop":
+        await query.answer()
+    elif data.startswith("getfiles:"):
+        await handle_get_files()
+    elif data == "about":
+        await handle_about()
+    elif data == "back":
+        await handle_back()
+    elif data.startswith("langs:"):
+        await handle_language_list()
+    elif data.startswith("langselect:"):
+        await handle_language_select()
+    else:
+        await query.answer("Unknown action.", show_alert=True)
+        
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
     users = users_col.count_documents({})
@@ -170,10 +336,9 @@ async def track_group(client, message: Message):
         {"$set": {"title": message.chat.title}},
         upsert=True
     )
-
 @app.on_message(filters.new_chat_members)
 async def welcome_group(client, message: Message):
-    for user in message.new_chat_members:
+    pass for user in message.new_chat_members:
         if user.id == (await client.get_me()).id:
             group_title = message.chat.title
             group_link = f"https://t.me/c/{str(message.chat.id)[4:]}" if str(message.chat.id).startswith("-100") else "https://t.me/"
@@ -203,6 +368,7 @@ async def save_file(client, message: Message):
     normalized_name = normalize_text(file_name)
     language = extract_language(combined_text)
 
+    # Check for duplicate
     existing = files_col.find_one({
         "chat_id": message.chat.id,
         "message_id": message.id
