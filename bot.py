@@ -200,26 +200,28 @@ async def handle_callbacks(client, query: CallbackQuery):
             else:
                 selected_lang = selected_lang_page
                 page = 0
-        except Exception as e:
-            print("Error parsing getfiles data:", e)
-            return await query.answer("Invalid request format.", show_alert=True)
-            
+
             query_filter = {"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}
             if selected_lang != "All":
                 query_filter["language"] = selected_lang
-                
-                results = list(files_col.find(query_filter))
-                if not results:
-                    return await query.answer("No matching files found.", show_alert=True)
-                    
-                    markup = generate_pagination_buttons(results, (await client.get_me()).username, page, 5, "search", query_text, query.from_user.id, selected_lang)
-                    await query.message.edit_text(
-                        f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
-                        parse_mode=ParseMode.HTML,
-                        reply_markup=markup
-                    )
-                    return await query.answer()
-    
+
+            results = list(files_col.find(query_filter))
+            if not results:
+                return await query.answer("No matching files found.", show_alert=True)
+
+            markup = generate_pagination_buttons(
+                results, (await client.get_me()).username, page, 5, "search", query_text, query.from_user.id, selected_lang
+            )
+            await query.message.edit_text(
+                f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
+                parse_mode=ParseMode.HTML,
+                reply_markup=markup
+            )
+            return await query.answer()
+        except Exception as e:
+            print("Error in getfiles:", e)
+            return await query.answer("Something went wrong.", show_alert=True)
+ 
     elif data == "about":
         bot_username = (await client.get_me()).username
         about_text = f"""- - - - - - 🍿About Me - - - - - -
