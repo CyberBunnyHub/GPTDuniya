@@ -239,61 +239,60 @@ async def handle_callbacks(client, query: CallbackQuery):
                         reply_markup=markup
                     )
                     return await query.answer()
-                
-                elif data.startswith("getfiles:"):
-                    _, query_text, page_str = data.split(":", 2)
-                    page = int(page_str)
-                    per_page = 5
-                    results = list(files_col.find({"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}))
-                    selected_docs = results[page * per_page: (page + 1) * per_page]
-
-                    if not selected_docs:
-                        return await query.answer("No files found on this page.", show_alert=True)
+                    
+                    if data.startswith("getfiles:"):
+                        _, query_text, page_str = data.split(":", 2)
+                        page = int(page_str)
+                        per_page = 5
+                        results = list(files_col.find({"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}))
+                        selected_docs = results[page * per_page: (page + 1) * per_page]
                         
-                        await query.answer("Sending selected files...", show_alert=False)
-                        for doc in selected_docs:
+                        if not selected_docs:
+                            return await query.answer("No files found on this page.", show_alert=True)
+                            await query.answer("Sending selected files...", show_alert=False)
+                            for doc in selected_docs:
+                                try:
+                                    await client.copy_message(
+                                    chat_id=query.message.chat.id,
+                                    from_chat_id=doc["chat_id"],
+                                    message_id=doc["message_id"]
+                                    )
+                                    await asyncio.sleep(0.5)
+                                except FloodWait as e:
+                                    await asyncio.sleep(e.value)
+                                except Exception as e:
+                                    print(f"Failed to send file: {e}")
+                        
+                        elif data == "back":
+                            image = random.choice(IMAGE_URLS)
+                            caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
+                            keyboard = InlineKeyboardMarkup([
+                                [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
+                                [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
+                                [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+                            ])
                             try:
-                                await client.copy_message(
-                                chat_id=query.message.chat.id,
-                                from_chat_id=doc["chat_id"],
-                                message_id=doc["message_id"]
-                                )
-                                await asyncio.sleep(0.5)
-                            except FloodWait as e:
-                                await asyncio.sleep(e.value)
-                            except Exception as e:
-                                print(f"Failed to send file: {e}")
-                    
-                    elif data == "back":
-                        image = random.choice(IMAGE_URLS)
-                        caption = random.choice(CAPTIONS).format(user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>')
-                        keyboard = InlineKeyboardMarkup([
-                            [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
-                            [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
-                            [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
-                        ])
-                        try:
-                            await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
-                            except:
-                                await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-                    
-                    elif data == "about":
-                        bot_username = (await client.get_me()).username
-                        about_text = f"""- - - - - - 🍿About Me - - - - - -
-                        -ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
-                        -ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & -ˋˏ✄- -  <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
-                        -ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
-                        -ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>
-                        """
-                        await query.message.edit_text(
-                            about_text,
-                            reply_markup=InlineKeyboardMarkup([
-                                [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
-                                 InlineKeyboardButton("⟲ Back", callback_data="back")]
-                            ]),
-                            parse_mode=ParseMode.HTML
-                        )
+                                await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
+                                except:
+                                    await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
                         
+                        elif data == "about":
+                            bot_username = (await client.get_me()).username
+                            about_text = f"""- - - - - - 🍿About Me - - - - - -
+                            -ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
+                            -ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & -ˋˏ✄- -  <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
+                            -ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
+                            -ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>
+                            """
+                            await query.message.edit_text(
+                                about_text,
+                                reply_markup=InlineKeyboardMarkup([
+                                    [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
+                                     InlineKeyboardButton("⟲ Back", callback_data="back")]
+                                ]),
+                                parse_mode=ParseMode.HTML
+                            )
+                            
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
     users = users_col.count_documents({})
