@@ -248,59 +248,59 @@ async def handle_callbacks(client, query: CallbackQuery):
         await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
     except:
         await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-
-    elif data.startswith("langs:"):
-        _, query_text, _ = data.split(":", 2)
-        encoded_query = base64.urlsafe_b64encode(query_text.encode()).decode()
-        buttons = [[InlineKeyboardButton(lang, callback_data=f"langselect:{encoded_query}:{lang}")]
-                   for lang in PREDEFINED_LANGUAGES]
-        buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
-        markup = InlineKeyboardMarkup(buttons)
-        await query.message.edit_text(
-            f"Sᴇʟᴇᴄᴛ A Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
-            reply_markup=markup,
-            parse_mode=ParseMode.HTML
-        )
-        return await query.answer()
-
-    elif data.startswith("langselect:"):
-        parts = data.split(":", 2)
-        if len(parts) < 3:
-            return await query.answer("Invalid language selection.", show_alert=True)
-
-        _, encoded_query, selected_lang = parts
-
-        try:
-            query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode()
-            selected_lang = selected_lang.capitalize()
-
-            results = list(files_col.find({
-                "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
-                "language": selected_lang
-            }))
-
-            if not results:
-                markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
-                return await query.message.edit_text(
-                    f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=markup
-                )
-
-            markup = generate_pagination_buttons(
-                results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
-            )
+        
+        if data.startswith("langs:"):
+            _, query_text, _ = data.split(":", 2)
+            encoded_query = base64.urlsafe_b64encode(query_text.encode()).decode()
+            buttons = [[InlineKeyboardButton(lang, callback_data=f"langselect:{encoded_query}:{lang}")]
+                       for lang in PREDEFINED_LANGUAGES]
+            buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
+            markup = InlineKeyboardMarkup(buttons)
             await query.message.edit_text(
-                f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
-                parse_mode=ParseMode.HTML,
-                reply_markup=markup
+                f"Sᴇʟᴇᴄᴛ A Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
+                reply_markup=markup,
+                parse_mode=ParseMode.HTML
             )
             return await query.answer()
-
-        except Exception as e:
-            print("Language selection error:", e)
-            return await query.answer("Something went wrong.", show_alert=True)
-            
+        
+        elif data.startswith("langselect:"):
+            parts = data.split(":", 2)
+            if len(parts) < 3:
+                return await query.answer("Invalid language selection.", show_alert=True)
+                
+                _, encoded_query, selected_lang = parts
+                
+                try:
+                    query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode()
+                    selected_lang = selected_lang.capitalize()
+                    
+                    results = list(files_col.find({
+                        "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
+                        "language": selected_lang
+                    }))
+                    
+                    if not results:
+                        markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
+                        return await query.message.edit_text(
+                            f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
+                            parse_mode=ParseMode.HTML,
+                            reply_markup=markup
+                        )
+                        
+                        markup = generate_pagination_buttons(
+                            results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
+                        )
+                        await query.message.edit_text(
+                            f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
+                            parse_mode=ParseMode.HTML,
+                            reply_markup=markup
+                        )
+                        return await query.answer()
+                
+                except Exception as e:
+                    print("Language selection error:", e)
+                    return await query.answer("Something went wrong.", show_alert=True)
+                    
 @app.on_message(filters.command("stats"))
 async def stats(client, message: Message):
     users = users_col.count_documents({})
