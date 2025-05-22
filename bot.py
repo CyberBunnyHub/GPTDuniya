@@ -294,11 +294,14 @@ async def handle_callbacks(client, query: CallbackQuery):
             markup = generate_pagination_buttons(
                 results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
             )
-            await query.message.edit_text(
-                f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
-                parse_mode=ParseMode.HTML,
-                reply_markup=markup
-            )
+            try:
+                await query.message.edit_text(
+                    f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=markup
+                )
+            except MessageNotModified:
+                pass
             return await query.answer()
         except Exception as e:
             print("Language selection error:", e)
