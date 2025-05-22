@@ -39,8 +39,7 @@ async def check_subscription(client, user_id):
         return False
     except:
         return True
-
-def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None):
+def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All"):
     total_pages = (len(results) + per_page - 1) // per_page
     start = page * per_page
     end = start + per_page
@@ -64,7 +63,7 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
 
     if results:
         buttons.append([
-            InlineKeyboardButton("Gᴇᴛ Aʟʟ Fɪʟᴇs", callback_data=f"getfiles:{query}:{page}"),
+            InlineKeyboardButton("Gᴇᴛ Aʟʟ Fɪʟᴇs", callback_data=f"getfiles:{query}|{selected_lang}:{page}"),
             InlineKeyboardButton("Lᴀɴɢᴜᴀɢᴇs", callback_data=f"langs:{query}:dummy")
         ])
 
@@ -189,30 +188,29 @@ async def handle_callbacks(client, query: CallbackQuery):
             return await query.message.edit_text("Joined!")
         else:
             return await query.answer("Please join the updates channel to use this bot.", show_alert=True)
-
+        
     elif data.startswith("getfiles:"):
-        _, query_text, page_str = data.split(":", 2)
+        _, query_with_lang, page_str = data.split(":", 2)
         page = int(page_str)
-        per_page = 5
-        results = list(files_col.find({"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}))
-        selected_docs = results[page * per_page: (page + 1) * per_page]
-
-        if not selected_docs:
-            return await query.answer("No files found on this page.", show_alert=True)
-
-        await query.answer("Sending selected files...")
-        for doc in selected_docs:
-            try:
-                await client.copy_message(
-                    chat_id=query.message.chat.id,
-                    from_chat_id=doc["chat_id"],
-                    message_id=doc["message_id"]
-                )
-                await asyncio.sleep(0.5)
-            except FloodWait as e:
-                await asyncio.sleep(e.value)
-            except Exception as e:
-                print(f"Failed to send file: {e}")
+        
+        if "|" in query_with_lang:
+            query_text, selected_lang = query_with_lang.split("|", 1)
+        else:
+            query_text, selected_lang = query_with_lang, "All"
+            query_filter = {"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}
+            if selected_lang != "All":
+                query_filter["language"] = selected_lang
+                
+                results = list(files_col.find(query_filter))
+                
+                if not results:
+                    await query.answer("No matching files found.", show_alert=True)
+                    return
+        
+        for file in results:
+            await send_file_by_id(client, query.from_user.id, file["file_id"])
+            await asyncio.sleep(0.5)
+            await query.answer()
 
     elif data == "about":
         bot_username = (await client.get_me()).username
@@ -282,10 +280,11 @@ async def handle_callbacks(client, query: CallbackQuery):
                     parse_mode=ParseMode.HTML,
                     reply_markup=markup
                 )
+                
+                markup = generate_pagination_buttons(
+                    results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id, selected_lang
+                )
 
-            markup = generate_pagination_buttons(
-                results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
-            )
             await query.message.edit_text(
                 f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
                 parse_mode=ParseMode.HTML,
