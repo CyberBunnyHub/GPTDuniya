@@ -232,7 +232,7 @@ async def handle_callbacks(client, query: CallbackQuery):
     except:
         await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
-elif data == "about":
+    elif data == "about":
         bot_username = (await client.get_me()).username
         about_text = f"""- - - - - - 🍿About Me - - - - - -
 -ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
@@ -240,14 +240,15 @@ elif data == "about":
 -ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
 -ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>
 """
-    await query.message.edit_text(
-        about_text,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
-             InlineKeyboardButton("⟲ Back", callback_data="back")]
-        ]),
-        parse_mode=ParseMode.HTML
-    )
+        await query.message.edit_text(
+            about_text,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
+                 InlineKeyboardButton("⟲ Back", callback_data="back")]
+            ]),
+            parse_mode=ParseMode.HTML
+        )
+
 
     elif data.startswith("langs:"):
         _, query_text, _ = data.split(":", 2)
