@@ -149,7 +149,6 @@ async def search_and_track(client, message: Message):
 
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
-    callback_data = callback_query.data
     data = query.data
 
     if data.startswith(("search:", "movie:")):
@@ -190,7 +189,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         else:
             return await query.answer("Please join the updates channel to use this bot.", show_alert=True)
         
-    elif callback_data.startswith("getfiles:"):
+    elif data.startswith("getfiles:"):
         data = callback_data.split(":")[1]
         query_text, selected_lang_page = data.split("|")
         selected_lang, page = selected_lang_page.split(":")
