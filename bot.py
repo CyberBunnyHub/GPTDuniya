@@ -64,7 +64,7 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
 
     if results:
         buttons.append([
-            InlineKeyboardButton("Gᴇᴛ Aʟʟ Fɪʟᴇs", callback_data=f"getfiles:{query}|{selected_lang}:{page}"),
+            InlineKeyboardButton("Gᴇᴛ Aʟʟ Fɪʟᴇs", callback_data=f"getfiles:{query}:{page}:{doc.get('language', '')}"),
             InlineKeyboardButton("Lᴀɴɢᴜᴀɢᴇs", callback_data=f"langs:{query}:dummy")
         ])
 
@@ -191,10 +191,18 @@ async def handle_callbacks(client, query: CallbackQuery):
             return await query.answer("Please join the updates channel to use this bot.", show_alert=True)
 
     elif data.startswith("getfiles:"):
-        _, query_text, page_str = data.split(":", 2)
+        parts = data.split(":")
+        query_text = parts[1]
+        page_str = parts[2]
+        selected_lang = parts[3] if len(parts) > 3 else None
         page = int(page_str)
         per_page = 5
-        results = list(files_col.find({"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}))
+
+        query_filter = {"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}
+        if selected_lang:
+            query_filter["language"] = selected_lang.capitalize()
+        results = list(files_col.find(query_filter))
+
         selected_docs = results[page * per_page: (page + 1) * per_page]
 
         if not selected_docs:
@@ -213,7 +221,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 await asyncio.sleep(e.value)
             except Exception as e:
                 print(f"Failed to send file: {e}")
-
+            
     elif data == "about":
         bot_username = (await client.get_me()).username
         about_text = f"""- - - - - - 🍿About Me - - - - - -
