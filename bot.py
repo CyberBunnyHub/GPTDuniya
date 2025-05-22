@@ -249,7 +249,7 @@ async def handle_callbacks(client, query: CallbackQuery):
     except:
         await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
-            elif data.startswith("langs:"):
+    elif data.startswith("langs:"):
         _, query_text, _ = data.split(":", 2)
         encoded_query = base64.urlsafe_b64encode(query_text.encode()).decode()
         buttons = [[InlineKeyboardButton(lang, callback_data=f"langselect:{encoded_query}:{lang}")]
