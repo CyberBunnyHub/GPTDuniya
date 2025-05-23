@@ -379,33 +379,27 @@ async def handle_forwarded_channel_message(client, message: Message):
 
     try:
         chat_id = message.forward_from_chat.id
-        start_msg_id = message.forward_from_message_id
+        start_id = message.forward_from_message_id
+        current_id = start_id
         total = 0
-        offset_id = start_msg_id
-        limit = 100
+        batch_size = 100  # Adjust as needed
 
         while True:
-            messages = []
-            async for msg in app.get_chat_history(chat_id, offset_id=offset_id, limit=limit):
-                messages.append(msg)
+            ids = list(range(current_id + 1, current_id + 1 + batch_size))
+            messages = await client.get_messages(chat_id, ids)
 
-            if not messages:
-                break  # No more messages
-
-            stop_processing = False
+            found_any = False
             for msg in messages:
-                if msg.id >= start_msg_id:
-                    continue  # Only process messages before the forwarded one
-
-                media = msg.document or msg.video
-                if not media:
+                if not msg or not (msg.document or msg.video):
                     continue
+
+                found_any = True
 
                 # Check for duplicate
-                exists = files_col.find_one({"chat_id": msg.chat.id, "message_id": msg.id})
-                if exists:
+                if files_col.find_one({"chat_id": msg.chat.id, "message_id": msg.id}):
                     continue
 
+                media = msg.document or msg.video
                 file_type = "document" if msg.document else "video"
                 file_name = media.file_name or "Unnamed"
                 caption = msg.caption or ""
@@ -423,17 +417,15 @@ async def handle_forwarded_channel_message(client, message: Message):
                 })
 
                 total += 1
+                current_id = msg.id  # Move forward
 
-            # Stop if the earliest message we've got is already the first message
-            if messages[-1].id == offset_id:
-                break
-
-            offset_id = messages[-1].id
+            if not found_any:
+                break  # No more messages to process
 
         if total > 0:
             await message.reply(f"✅ {total} new files added to database.")
         else:
-            await message.reply("ℹ️ No new files found before the forwarded message.")
+            await message.reply("ℹ️ No new files found.")
 
     except Exception as e:
         await message.reply(f"❌ Failed to add files.\n\nError: `{e}`")
