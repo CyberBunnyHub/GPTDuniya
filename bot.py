@@ -180,10 +180,13 @@ async def handle_callbacks(client, query: CallbackQuery):
     elif data == "help":
         return await query.message.edit_text(
             "Welcome To My Store!\n\n<blockquote>Note: Under Construction...🚧</blockquote>",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data="back")]]),
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📊 Stats", callback_data="showstats")],
+                [InlineKeyboardButton("⟲ Back", callback_data="back")]
+            ]),
             parse_mode=ParseMode.HTML
         )
-
+        
     elif data == "checksub":
         if await check_subscription(client, query.from_user.id):
             return await query.message.edit_text("Joined!")
@@ -239,6 +242,21 @@ async def handle_callbacks(client, query: CallbackQuery):
             parse_mode=ParseMode.HTML
         )
 
+    elif data == "showstats":
+        users = users_col.count_documents({})
+        groups = groups_col.count_documents({})
+        files = files_col.count_documents({})
+        return await query.message.edit_text(
+            f"""<b>- - - - - - 📉 Bot Stats - - - - - -</b>
+            
+            <b>Total Users:</b> {users}
+            <b>Total Groups:</b> {groups}
+            <b>Total Files:</b> {files}
+            """,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data="help")]]),
+            parse_mode=ParseMode.HTML
+        )
+    
     elif data == "back":
         image = random.choice(IMAGE_URLS)
         caption = random.choice(CAPTIONS).format(
@@ -309,17 +327,7 @@ async def handle_callbacks(client, query: CallbackQuery):
 
     else:
         return await query.answer("Unknown action.", show_alert=True)
-                
-@app.on_message(filters.command("stats"))
-async def stats(client, message: Message):
-    users = users_col.count_documents({})
-    groups = groups_col.count_documents({})
-    files = files_col.count_documents({})
-    await message.reply(f"""- - - - - - 📉 Bot Stats - - - - - -\n
-    Total Users: {users}\n
-    Total Groups: {groups}\n
-    Total Files: {files}""")
-
+        
 @app.on_message(filters.group & filters.text)
 async def track_group(client, message: Message):
     groups_col.update_one(
