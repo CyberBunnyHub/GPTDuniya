@@ -379,20 +379,23 @@ async def handle_forwarded_channel_message(client, message: Message):
 
     try:
         chat_id = message.forward_from_chat.id
-        msg_id = message.forward_from_message_id
+        start_msg_id = message.forward_from_message_id
         total = 0
-        offset_id = msg_id
-        last_processed_id = msg_id
+        offset_id = start_msg_id
+        limit = 100
 
         while True:
-            messages = await app.get_chat_history(chat_id, offset_id=offset_id, limit=100)
+            messages = []
+            async for msg in app.get_chat_history(chat_id, offset_id=offset_id, limit=limit):
+                messages.append(msg)
 
             if not messages:
                 break  # No more messages
 
-            for msg in reversed(messages):  # Process older messages first
-                if msg.id <= last_processed_id:
-                    continue
+            stop_processing = False
+            for msg in messages:
+                if msg.id >= start_msg_id:
+                    continue  # Only process messages before the forwarded one
 
                 media = msg.document or msg.video
                 if not media:
@@ -420,14 +423,17 @@ async def handle_forwarded_channel_message(client, message: Message):
                 })
 
                 total += 1
-                last_processed_id = msg.id
 
-            offset_id = messages[-1].id  # Update offset for next batch
+            # Stop if the earliest message we've got is already the first message
+            if messages[-1].id == offset_id:
+                break
+
+            offset_id = messages[-1].id
 
         if total > 0:
             await message.reply(f"✅ {total} new files added to database.")
         else:
-            await message.reply("ℹ️ No new files found after the forwarded message.")
+            await message.reply("ℹ️ No new files found before the forwarded message.")
 
     except Exception as e:
         await message.reply(f"❌ Failed to add files.\n\nError: `{e}`")
