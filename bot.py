@@ -182,11 +182,25 @@ async def handle_callbacks(client, query: CallbackQuery):
             "Welcome To My Store!\n\n<blockquote>Note: Under Construction...🚧</blockquote>",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("📊 Stats", callback_data="showstats")],
+                [InlineKeyboardButton("🗂 Database", callback_data="database")],
                 [InlineKeyboardButton("⟲ Back", callback_data="back")]
             ]),
             parse_mode=ParseMode.HTML
         )
-        
+
+    elif data == "database":
+        db_help_text = (
+            "<b>- - - - - - 🗂 How to Add Files - - - - - -</b>\n\n"
+            "1. ᴍᴀᴋᴇ ᴍᴇ ᴀɴ ᴀᴅᴍɪɴ ɪɴ ʏᴏᴜʀ ᴄʜᴀɴɴᴇʟ ɪꜰ ɪᴛ'ꜱ ᴘʀɪᴠᴀᴛᴇ.\n"
+            "2. ꜰᴏʀᴡᴀʀᴅ ᴛʜᴇ ʟᴀꜱᴛ ᴍᴇꜱꜱᴀɢᴇ ᴏꜰ ᴛʜᴇ ᴄʜᴀɴɴᴇʟ ᴡɪᴛʜ ϙᴜᴏᴛᴇꜱ.\n"
+            "I'ʟʟ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴀᴅᴅ ᴀʟʟ ꜰɪʟᴇꜱ ᴛᴏ ᴍʏ ᴅᴀᴛᴀʙᴀꜱᴇ!"
+        )
+        await query.message.edit_text(
+            db_help_text,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data="help")]]),
+            parse_mode=ParseMode.HTML
+        )
+
     elif data == "checksub":
         if await check_subscription(client, query.from_user.id):
             return await query.message.edit_text("Joined!")
@@ -357,6 +371,57 @@ def extract_language(text):
         if f" {lang} " in f" {text} ":
             return lang.capitalize()
     return "Unknown"
+
+@app.on_message(filters.private & filters.forwarded & filters.text)
+async def handle_forwarded_channel_message(client, message: Message):
+    if not message.forward_from_chat:
+        return await message.reply("❌ This doesn't seem to be forwarded from a channel.")
+
+    channel_id = message.forward_from_chat.id
+    last_msg_id = message.forwarded_message_id
+
+    await message.reply("⏳ Collecting files. This may take a while...")
+
+    added = 0
+    for msg_id in range(1, last_msg_id + 1):
+        try:
+            msg = await client.get_messages(channel_id, msg_id)
+            if not msg or not msg.media:
+                continue
+
+            file_name = (
+                msg.document.file_name if msg.document else
+                msg.video.file_name if msg.video else
+                msg.audio.file_name if msg.audio else
+                msg.caption if msg.caption else "Unnamed"
+            )
+
+            normalized_name = normalize_text(file_name)
+
+            # Check for duplicates
+            exists = files_col.find_one({
+                "chat_id": channel_id,
+                "message_id": msg_id
+            })
+            if exists:
+                continue
+
+            # Save file to DB
+            files_col.insert_one({
+                "file_name": file_name,
+                "normalized_name": normalized_name,
+                "chat_id": channel_id,
+                "message_id": msg_id,
+                "language": "All"
+            })
+            added += 1
+            await asyncio.sleep(0.1)
+
+        except Exception as e:
+            print(f"Error fetching message {msg_id}: {e}")
+            continue
+
+    await message.reply(f"✅ Done! {added} files have been added to the database.")
 
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
