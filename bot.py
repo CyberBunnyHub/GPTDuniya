@@ -385,39 +385,5 @@ async def save_file(client, message: Message):
     })
     print(f"Stored file: {file_name} | Language: {language}")
 
-@app.on_message(filters.command("storefiles") & filters.user(BOT_OWNER))
-async def store_existing_files(client, message: Message):
-    await message.reply("Starting to scan channel messages...")
-    total, skipped = 0, 0
-
-    async for msg in client.get_chat_history(DB_CHANNEL):
-        media = msg.document or msg.video
-        if not media:
-            continue
-        file_name = media.file_name or "Unnamed"
-        normalized_name = normalize_text(file_name)
-        file_size = media.file_size
-        language = extract_language(file_name)
-
-        exists = files_col.find_one({
-            "file_name": file_name,
-            "file_size": file_size,
-            "chat_id": msg.chat.id
-        })
-        if exists:
-            skipped += 1
-            continue
-
-        files_col.insert_one({
-            "file_name": file_name,
-            "normalized_name": normalized_name,
-            "language": language,
-            "chat_id": msg.chat.id,
-            "message_id": msg.id
-        })
-        total += 1
-
-    await message.reply(f"✅ Done.\nStored: {total} new files.\nSkipped: {skipped}")
-
 print("starting...")
 app.run()
