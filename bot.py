@@ -382,16 +382,16 @@ async def handle_forwarded_channel_message(client, message: Message):
         msg_id = message.forward_from_message_id
         total = 0
         offset_id = msg_id
+        last_processed_id = msg_id
 
         while True:
-            messages = await app.get_chat_history(chat_id, offset_id=offset_id, reverse=True)
-            fetched = 0
+            messages = await app.get_chat_history(chat_id, offset_id=offset_id, limit=100)
 
-            async for msg in messages:
-                fetched += 1
-                offset_id = msg.id  # For the next batch
+            if not messages:
+                break  # No more messages
 
-                if msg.id <= msg_id:
+            for msg in reversed(messages):  # Process older messages first
+                if msg.id <= last_processed_id:
                     continue
 
                 media = msg.document or msg.video
@@ -420,9 +420,9 @@ async def handle_forwarded_channel_message(client, message: Message):
                 })
 
                 total += 1
+                last_processed_id = msg.id
 
-            if fetched == 0:
-                break  # No more messages
+            offset_id = messages[-1].id  # Update offset for next batch
 
         if total > 0:
             await message.reply(f"✅ {total} new files added to database.")
