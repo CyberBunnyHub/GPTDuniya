@@ -386,13 +386,12 @@ async def handle_forwarded_channel_message(client, message: Message):
     for msg_id in range(1, last_msg_id + 1):
         try:
             msg = await client.get_messages(channel_id, msg_id)
-            if not msg or not msg.media:
+            if not msg or not (msg.document or msg.video):
                 continue
 
             file_name = (
                 msg.document.file_name if msg.document else
                 msg.video.file_name if msg.video else
-                msg.audio.file_name if msg.audio else
                 msg.caption if msg.caption else "Unnamed"
             )
 
