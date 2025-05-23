@@ -374,33 +374,35 @@ def extract_language(text):
 
 @app.on_message(filters.private & filters.forwarded)
 async def handle_forwarded_channel_message(client, message: Message):
-    if not message.forward_from_chat or not message.forward_from_chat.type.name == "CHANNEL":
+    if not message.forward_from_chat or message.forward_from_chat.type.name != "CHANNEL":
         return await message.reply("❌ Please forward a message from a channel.")
 
     try:
         chat_id = message.forward_from_chat.id
         msg_id = message.forward_from_message_id
+        total = 0
 
-        # Fetch the last 100 messages starting from the forwarded one
-        async for msg in client.get_chat_history(chat_id, offset_id=msg_id, reverse=True):
+        async for msg in client.get_chat_history(chat_id, offset_id=msg_id, reverse=False):
+            if msg.id <= msg_id:
+                continue  # Skip the forwarded message itself and any older ones
+
             if msg.document or msg.video:
                 file_type = (
                     "document" if msg.document else
                     "video" if msg.video else
                     "unknown"
                 )
-                file_name = msg.document.file_name if msg.document else \
-                            msg.video.file_name if msg.video else "Unnamed"
-
+                media = message.document or message.video
+                file_name = media.file_name
+                caption = message.caption or ""
+                combined_text = f"{file_name} {caption}".lower()
                 normalized_name = normalize_text(file_name)
                 language = extract_language(combined_text)
-                combined_text = f"{file_name} {caption}".lower()
-                
-                # Save to DB
+
                 files_col.update_one(
                     {
-                        "chat_id": chat_id,
-                        "message_id": msg.id
+                        "chat_id": message.chat.id,
+                        "message_id": message.id
                     },
                     {
                         "$set": {
@@ -408,16 +410,22 @@ async def handle_forwarded_channel_message(client, message: Message):
                             "normalized_name": normalized_name,
                             "chat_id": message.chat.id,
                             "message_id": message.id,
-                            "language": extract_language(combined_text),
+                            "language": language,
                             "file_type": file_type
                         }
                     },
                     upsert=True
                 )
-        await message.reply("✅ Files added to database.")
+                total += 1
+
+        if total > 0:
+            await message.reply(f"✅ {total} files added to database.")
+        else:
+            await message.reply("ℹ️ No files found after the forwarded message.")
+
     except Exception as e:
         await message.reply(f"❌ Failed to add files.\n\nError: {e}")
-
+        
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
     media = message.document or message.video
