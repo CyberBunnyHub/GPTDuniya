@@ -403,8 +403,8 @@ async def handle_forwarded_channel_message(client, message: Message):
 
                 media = msg.document or msg.video
                 file_name = media.file_name
-                caption = msg.caption or ""
-                combined_text = f"{file_name} {caption}".lower()
+                custom_caption = f"<code>{file_name}</code>"
+                combined_text = f"{file_name} {custom_caption}".lower()
                 normalized_name = normalize_text(file_name)
                 language = extract_language(combined_text)
 
@@ -442,8 +442,8 @@ async def handle_forwarded_channel_message(client, message: Message):
 async def save_file(client, message: Message):
     media = message.document or message.video
     file_name = media.file_name
-    caption = message.caption or ""
-    combined_text = f"{file_name} {caption}".lower()
+    custom_caption = f"<code>{file_name}</code>"
+    combined_text = f"{file_name} {custom_caption}".lower()
     normalized_name = normalize_text(file_name)
     language = extract_language(combined_text)
 
