@@ -59,7 +59,7 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
             continue  # Skip if file is not in the database anymore
 
         row = [InlineKeyboardButton(
-            f"🎬 {doc.get('<code>file_name</code>', 'Unnamed')[:30]}",
+            f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
             url=f"https://t.me/{bot_username}?start={doc['_id']}"
         )]
         if user_id == BOT_OWNER:
@@ -420,6 +420,7 @@ async def handle_forwarded_channel_message(client, message: Message):
                     "file_name": file_name,
                     "normalized_name": normalized_name,
                     "language": language,
+                    "caption" = custom_caption,
                     "chat_id": msg.chat.id,
                     "message_id": msg.id
                 })
@@ -460,6 +461,7 @@ async def save_file(client, message: Message):
         "file_name": file_name,
         "normalized_name": normalized_name,
         "language": language,
+        "caption" = custom_caption,
         "chat_id": message.chat.id,
         "message_id": message.id
     })
