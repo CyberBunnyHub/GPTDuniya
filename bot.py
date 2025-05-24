@@ -379,23 +379,26 @@ async def handle_forwarded_channel_message(client, message: Message):
 
     try:
         chat_id = message.forward_from_chat.id
-        start_id = message.forward_from_message_id
-        current_id = start_id
+        offset_id = message.forward_from_message_id
         total = 0
-        batch_size = 100  # Adjust as needed
+        batch_size = 100
 
         while True:
-            ids = list(range(current_id + 1, current_id + 1 + batch_size))
-            messages = await client.get_messages(chat_id, ids)
+            messages = await client.get_messages(chat_id, limit=batch_size, offset_id=offset_id)
+
+            if not messages:
+                break  # No more messages
 
             found_any = False
+
             for msg in messages:
+                offset_id = msg.id  # Update for next batch
+
                 if not msg or not (msg.document or msg.video):
                     continue
 
                 found_any = True
 
-                # Check for duplicate
                 if files_col.find_one({"chat_id": msg.chat.id, "message_id": msg.id}):
                     continue
 
@@ -417,10 +420,9 @@ async def handle_forwarded_channel_message(client, message: Message):
                 })
 
                 total += 1
-                current_id = msg.id  # Move forward
 
             if not found_any:
-                break  # No more messages to process
+                break
 
         if total > 0:
             await message.reply(f"✅ {total} new files added to database.")
@@ -429,7 +431,7 @@ async def handle_forwarded_channel_message(client, message: Message):
 
     except Exception as e:
         await message.reply(f"❌ Failed to add files.\n\nError: `{e}`")
-
+        
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
     media = message.document or message.video
