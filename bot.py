@@ -54,6 +54,10 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
 
     buttons = []
     for doc in page_data:
+        # Check again to ensure file still exists (optional redundancy)
+        if not files_col.find_one({"_id": doc["_id"]}):
+            continue  # Skip if file is not in the database anymore
+
         row = [InlineKeyboardButton(
             f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
             url=f"https://t.me/{bot_username}?start={doc['_id']}"
@@ -62,21 +66,21 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
             row.append(InlineKeyboardButton("✘", callback_data=f"deletefile:{doc['_id']}"))
         buttons.append(row)
 
-    if results:
+    if buttons:
         buttons.append([
             InlineKeyboardButton("Gᴇᴛ Aʟʟ Fɪʟᴇs", callback_data=f"getfiles:{query}:{page}:{doc.get('language', '')}"),
             InlineKeyboardButton("Lᴀɴɢᴜᴀɢᴇs", callback_data=f"langs:{query}:dummy")
         ])
 
-    nav_buttons = []
-    if page > 0:
-        nav_buttons.append(InlineKeyboardButton("⟲ Bᴀᴄᴋ", callback_data=f"{prefix}:{page - 1}:{query}"))
-    nav_buttons.append(InlineKeyboardButton(f"Page {page + 1}/{total_pages}", callback_data="noop"))
-    if end < len(results):
-        nav_buttons.append(InlineKeyboardButton("Nᴇxᴛ ⇌", callback_data=f"{prefix}:{page + 1}:{query}"))
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(InlineKeyboardButton("⟲ Bᴀᴄᴋ", callback_data=f"{prefix}:{page - 1}:{query}"))
+        nav_buttons.append(InlineKeyboardButton(f"Page {page + 1}/{total_pages}", callback_data="noop"))
+        if end < len(results):
+            nav_buttons.append(InlineKeyboardButton("Nᴇxᴛ ⇌", callback_data=f"{prefix}:{page + 1}:{query}"))
 
-    if nav_buttons:
-        buttons.append(nav_buttons)
+        if nav_buttons:
+            buttons.append(nav_buttons)
 
     return InlineKeyboardMarkup(buttons)
 
@@ -404,7 +408,7 @@ async def handle_forwarded_channel_message(client, message: Message):
 
                 media = msg.document or msg.video
                 file_type = "document" if msg.document else "video"
-                file_name = media.file_name or "Unnamed"
+                file_name = media.file_name                
                 caption = msg.caption or ""
                 combined_text = f"{file_name} {caption}".lower()
                 normalized_name = normalize_text(file_name)
