@@ -232,11 +232,18 @@ async def handle_callbacks(client, query: CallbackQuery):
         await query.answer("Sending selected files...")
         for doc in selected_docs:
             try:
-                await client.copy_message(
+                original_msg = await client.get_messages(chat_id=doc["chat_id"], message_ids=doc["message_id"])
+                caption = original_msg.caption or doc.get("file_name", "No Title")
+                caption = f"<code>{caption}</code>"
+                
+                await client.send_document(
                     chat_id=query.message.chat.id,
-                    from_chat_id=doc["chat_id"],
-                    message_id=doc["message_id"]
+                    document=original_msg.document or original_msg.video or original_msg.audio,
+                    caption=caption,
+                    reply_markup=original_msg.reply_markup,
+                    parse_mode=ParseMode.HTML
                 )
+
                 await asyncio.sleep(0.5)
             except FloodWait as e:
                 await asyncio.sleep(e.value)
