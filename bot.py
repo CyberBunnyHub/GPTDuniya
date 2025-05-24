@@ -424,7 +424,7 @@ async def handle_forwarded_channel_message(client, message: Message):
                     "file_name": file_name,
                     "normalized_name": normalized_name,
                     "language": language,
-                    "caption" = custom_caption,
+                    "caption": custom_caption,
                     "chat_id": msg.chat.id,
                     "message_id": msg.id
                 })
@@ -465,7 +465,7 @@ async def save_file(client, message: Message):
         "file_name": file_name,
         "normalized_name": normalized_name,
         "language": language,
-        "caption" = custom_caption,
+        "caption": custom_caption,
         "chat_id": message.chat.id,
         "message_id": message.id
     })
