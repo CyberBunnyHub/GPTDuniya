@@ -106,7 +106,15 @@ async def start_cmd(client, message: Message):
             await emoji_msg.delete()
             if not doc:
                 return await message.reply("❌ File not found.")
-            return await client.copy_message(chat_id=message.chat.id, from_chat_id=doc["chat_id"], message_id=doc["message_id"])
+            original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
+            caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
+            await client.send_document(
+                chat_id=message.chat.id,
+                document=original_message.document.file_id,
+                caption=caption,
+                parse_mode=ParseMode.HTML
+            )
+
         except Exception as e:
             await emoji_msg.delete()
             return await message.reply(f"❌ Error retrieving file:\n\n{e}")
@@ -232,18 +240,15 @@ async def handle_callbacks(client, query: CallbackQuery):
         await query.answer("Sending selected files...")
         for doc in selected_docs:
             try:
-                original_msg = await client.get_messages(chat_id=doc["chat_id"], message_ids=doc["message_id"])
-                caption = original_msg.caption or doc.get("file_name", "No Title")
-                caption = f"<code>{caption}</code>"
-                
+                original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
+                caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
                 await client.send_document(
                     chat_id=query.message.chat.id,
-                    document=original_msg.document or original_msg.video or original_msg.audio,
+                    document=original_message.document.file_id,
                     caption=caption,
-                    reply_markup=original_msg.reply_markup,
                     parse_mode=ParseMode.HTML
                 )
-
+                
                 await asyncio.sleep(0.5)
             except FloodWait as e:
                 await asyncio.sleep(e.value)
@@ -414,8 +419,8 @@ async def handle_forwarded_channel_message(client, message: Message):
 
                 media = msg.document or msg.video
                 file_name = media.file_name
-                custom_caption = f"<code>{file_name}</code>"
-                combined_text = f"{file_name} {custom_caption}".lower()
+                caption = caption
+                combined_text = f"{file_name} {caption}".lower()
                 normalized_name = normalize_text(file_name)
                 language = extract_language(combined_text)
 
@@ -431,7 +436,6 @@ async def handle_forwarded_channel_message(client, message: Message):
                     "file_name": file_name,
                     "normalized_name": normalized_name,
                     "language": language,
-                    "caption": custom_caption,
                     "chat_id": msg.chat.id,
                     "message_id": msg.id
                 })
@@ -454,8 +458,8 @@ async def handle_forwarded_channel_message(client, message: Message):
 async def save_file(client, message: Message):
     media = message.document or message.video
     file_name = media.file_name
-    custom_caption = f"<code>{file_name}</code>"
-    combined_text = f"{file_name} {custom_caption}".lower()
+    caption = caption
+    combined_text = f"{file_name} {caption}".lower()
     normalized_name = normalize_text(file_name)
     language = extract_language(combined_text)
 
@@ -472,7 +476,6 @@ async def save_file(client, message: Message):
         "file_name": file_name,
         "normalized_name": normalized_name,
         "language": language,
-        "caption": custom_caption,
         "chat_id": message.chat.id,
         "message_id": message.id
     })
