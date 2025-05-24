@@ -59,7 +59,7 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
             continue  # Skip if file is not in the database anymore
 
         row = [InlineKeyboardButton(
-            f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
+            f"🎬 {doc.get('<code>file_name</code>', 'Unnamed')[:30]}",
             url=f"https://t.me/{bot_username}?start={doc['_id']}"
         )]
         if user_id == BOT_OWNER:
