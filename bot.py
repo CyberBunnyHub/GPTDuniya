@@ -265,15 +265,19 @@ async def handle_callbacks(client, query: CallbackQuery):
         groups = groups_col.count_documents({})
         files = files_col.count_documents({})
         return await query.message.edit_text(
-            f"""<b>- - - - - - 📉 Bot Stats - - - - - -</b>
-            
-            <b>Total Users:</b> {users}
-            <b>Total Groups:</b> {groups}
-            <b>Total Files:</b> {files}
-            """,
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data="help")]]),
+        f"""<b>- - - - - - 📉 Bot Stats - - - - - -</b>
+        
+<b>Total Users:</b> {users}
+<b>Total Groups:</b> {groups}
+<b>Total Files:</b> {files}
+""",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔄 Refresh", callback_data="showstats")],
+                [InlineKeyboardButton("⟲ Back", callback_data="help")]
+            ]),
             parse_mode=ParseMode.HTML
         )
+
     
     elif data == "back":
         image = random.choice(IMAGE_URLS)
