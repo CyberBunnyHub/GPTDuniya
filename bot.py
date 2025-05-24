@@ -391,39 +391,41 @@ async def handle_forwarded_channel_message(client, message: Message):
             messages = await client.get_messages(chat_id, limit=batch_size, offset_id=offset_id)
 
             if not messages:
-                break  # No more messages
+                break
 
             found_any = False
 
             for msg in messages:
-                offset_id = msg.id  # Update for next batch
+                offset_id = msg.id
 
                 if not msg or not (msg.document or msg.video):
                     continue
 
-                found_any = True
-
-                if files_col.find_one({"chat_id": msg.chat.id, "message_id": msg.id}):
-                    continue
-
                 media = msg.document or msg.video
-                file_type = "document" if msg.document else "video"
-                file_name = media.file_name                
+                file_name = media.file_name
                 caption = msg.caption or ""
                 combined_text = f"{file_name} {caption}".lower()
                 normalized_name = normalize_text(file_name)
                 language = extract_language(combined_text)
 
+                # Check for duplicate
+                existing = files_col.find_one({
+                    "chat_id": msg.chat.id,
+                    "message_id": msg.id
+                })
+                if existing:
+                    continue
+
                 files_col.insert_one({
                     "file_name": file_name,
                     "normalized_name": normalized_name,
-                    "chat_id": msg.chat.id,
-                    "message_id": msg.id,
                     "language": language,
-                    "file_type": file_type
+                    "chat_id": msg.chat.id,
+                    "message_id": msg.id
                 })
 
                 total += 1
+                found_any = True
 
             if not found_any:
                 break
@@ -435,7 +437,7 @@ async def handle_forwarded_channel_message(client, message: Message):
 
     except Exception as e:
         await message.reply(f"❌ Failed to add files.\n\nError: `{e}`")
-        
+
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
     media = message.document or message.video
