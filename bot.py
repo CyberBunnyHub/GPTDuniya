@@ -411,24 +411,38 @@ async def handle_forwarded_channel_message(client, message: Message):
 
             found_any = False
 
-            for msg in messages:
-                offset_id = msg.id
+for msg in messages:
+    offset_id = msg.id
 
-                if not msg or not (msg.document or msg.video):
-                    continue
+    if not msg or not (msg.document or msg.video):
+        continue
 
-                media = msg.document or msg.video
-                file_name = media.file_name
-                caption = caption
-                combined_text = f"{file_name} {caption}".lower()
-                normalized_name = normalize_text(file_name)
-                language = extract_language(combined_text)
+    media = msg.document or msg.video
+    file_name = media.file_name
+    caption = msg.caption or ""
+    combined_text = f"{file_name} {caption}".lower()
+    normalized_name = normalize_text(file_name)
+    language = extract_language(combined_text)
 
-                # Check for duplicate
-                existing = files_col.find_one({
-                    "chat_id": msg.chat.id,
-                    "message_id": msg.id
-                })
+    # Correct duplicate check
+    existing = files_col.find_one({
+        "chat_id": chat_id,  # <-- fixed
+        "message_id": msg.id
+    })
+    if existing:
+        continue
+
+    # Save to DB
+    files_col.insert_one({
+        "file_name": file_name,
+        "normalized_name": normalized_name,
+        "language": language,
+        "chat_id": chat_id,  # <-- fixed
+        "message_id": msg.id
+    })
+
+    total += 1
+    found_any = True
                 if existing:
                     continue
 
@@ -436,7 +450,7 @@ async def handle_forwarded_channel_message(client, message: Message):
                     "file_name": file_name,
                     "normalized_name": normalized_name,
                     "language": language,
-                    "chat_id": msg.chat.id,
+                    "chat_id": chat_id,
                     "message_id": msg.id
                 })
 
@@ -458,7 +472,7 @@ async def handle_forwarded_channel_message(client, message: Message):
 async def save_file(client, message: Message):
     media = message.document or message.video
     file_name = media.file_name
-    caption = caption
+    caption = msg.caption or ""
     combined_text = f"{file_name} {caption}".lower()
     normalized_name = normalize_text(file_name)
     language = extract_language(combined_text)
@@ -476,7 +490,7 @@ async def save_file(client, message: Message):
         "file_name": file_name,
         "normalized_name": normalized_name,
         "language": language,
-        "chat_id": message.chat.id,
+        "chat_id": chat_id,
         "message_id": message.id
     })
     print(f"Stored file: {file_name} | Language: {language}")
