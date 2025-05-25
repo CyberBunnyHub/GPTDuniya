@@ -153,7 +153,7 @@ async def search_and_track(client, message: Message):
     if not results:
         return
 
-    markup = generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id)
+    reply_markup = await generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id)
     await message.reply(
         f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>",
         reply_markup=markup,
