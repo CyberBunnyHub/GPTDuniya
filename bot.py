@@ -399,32 +399,23 @@ async def handle_forwarded_channel_message(client, message: Message):
         status_msg = await message.reply("⏳ Starting file scan...")
 
         while True:
-            messages = await client.get_chat_history(chat_id, offset_id=offset_id, limit=batch_size)
-            messages = list(messages)  # convert async generator to list
-            if not messages:
-                break
-
             found_any = False
-
-            for msg in messages:
-                offset_id = msg.id  # update offset for next batch
-
-                if not msg or not (msg.document or msg.video):
-                    continue
+            async for msg in client.iter_history(chat_id, offset_id=offset_id, limit=batch_size):
+                offset_id = msg.id  # Move offset for next batch
 
                 media = msg.document or msg.video
-                if not media or not media.file_id:
-                    continue  # skip if file_id is missing
+                if not media or not getattr(media, "file_id", None):
+                    continue  # Skip if no valid media
 
-                file_name = media.file_name or "Unnamed"
+                file_name = getattr(media, "file_name", "Unnamed")
                 caption = msg.caption or ""
                 combined_text = f"{file_name} {caption}".lower()
                 normalized_name = normalize_text(file_name)
                 language = extract_language(combined_text)
 
                 existing = files_col.find_one({
-                    "chat_id": msg.chat.id,
-                    "message_id": msg.id
+                    "chat_id": message.chat.id,
+                    "message_id": message.id
                 })
 
                 if existing:
@@ -434,8 +425,8 @@ async def handle_forwarded_channel_message(client, message: Message):
                     "file_name": file_name,
                     "normalized_name": normalized_name,
                     "language": language,
-                    "chat_id": msg.chat.id,
-                    "message_id": msg.id
+                    "chat_id": chat_id,
+                    "message_id": message.id
                 })
 
                 total += 1
@@ -448,7 +439,7 @@ async def handle_forwarded_channel_message(client, message: Message):
                         pass
 
             if not found_any:
-                break
+                break  # Exit loop if no new files found
 
         final_msg = f"✅ {total} new files added to database." if total > 0 else "ℹ️ No new files found."
         await status_msg.edit_text(final_msg)
