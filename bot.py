@@ -426,7 +426,7 @@ async def handle_forwarded_channel_message(client, message: Message):
                     "normalized_name": normalized_name,
                     "language": language,
                     "chat_id": chat_id,
-                    "message_id": message.id
+                    "message_id": msg.id
                 })
 
                 total += 1
