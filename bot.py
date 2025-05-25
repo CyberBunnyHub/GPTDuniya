@@ -56,9 +56,8 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
     for doc in page_data:
         try:
             await app.get_messages(doc["chat_id"], doc["message_id"])
-            
-        except:
-            continue
+            except:
+                continue
             
             row = [InlineKeyboardButton(
                 f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
