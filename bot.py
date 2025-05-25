@@ -40,7 +40,7 @@ async def check_subscription(client, user_id):
         return False
     except:
         return True
-markup = await generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All"):
+async def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All"):
     total_pages = (len(results) + per_page - 1) // per_page
     start = page * per_page
     end = start + per_page
@@ -56,21 +56,19 @@ markup = await generate_pagination_buttons(results, bot_username, page, per_page
     for doc in page_data:
         try:
             await app.get_messages(doc["chat_id"], doc["message_id"])
-            
-        except:
-            continue
-            
             row = [InlineKeyboardButton(
                 f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
                 url=f"https://t.me/{bot_username}?start={doc['_id']}"
             )]
             if user_id == BOT_OWNER:
                 row.append(InlineKeyboardButton("✘", callback_data=f"deletefile:{doc['_id']}"))
-                buttons.append(row)
+            buttons.append(row)
+        except:
+            continue
 
     if buttons:
         buttons.append([
-            InlineKeyboardButton("Gᴇᴛ Aʟʟ Fɪʟᴇs", callback_data=f"getfiles:{query}:{page}:{doc.get('language', '')}"),
+            InlineKeyboardButton("Gᴇᴛ Aʟʟ Fɪʟᴇs", callback_data=f"getfiles:{query}:{page}:{selected_lang}"),
             InlineKeyboardButton("Lᴀɴɢᴜᴀɢᴇs", callback_data=f"langs:{query}:dummy")
         ])
 
