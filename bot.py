@@ -88,7 +88,7 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 async def start_cmd(client, message: Message):
     emoji_msg = await message.reply("🍿")
     image = random.choice(IMAGE_URLS)
-    user_mention = f'<a href="tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>'
+    user_mention = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
     caption = random.choice(CAPTIONS).format(user_mention=user_mention)
 
     if not await check_subscription(client, message.from_user.id):
