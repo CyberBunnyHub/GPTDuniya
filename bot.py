@@ -400,19 +400,23 @@ async def handle_forwarded_channel_message(client, message: Message):
 
         while True:
             messages = await client.get_chat_history(chat_id, offset_id=offset_id, limit=batch_size)
+            messages = list(messages)  # convert async generator to list
             if not messages:
                 break
 
             found_any = False
 
             for msg in messages:
-                offset_id = msg.id  # Correct position: update offset for next batch
+                offset_id = msg.id  # update offset for next batch
 
                 if not msg or not (msg.document or msg.video):
                     continue
 
                 media = msg.document or msg.video
-                file_name = media.file_name
+                if not media or not media.file_id:
+                    continue  # skip if file_id is missing
+
+                file_name = media.file_name or "Unnamed"
                 caption = msg.caption or ""
                 combined_text = f"{file_name} {caption}".lower()
                 normalized_name = normalize_text(file_name)
@@ -451,6 +455,6 @@ async def handle_forwarded_channel_message(client, message: Message):
 
     except Exception as e:
         await message.reply(f"❌ Failed to add files.\n\nError: `{e}`")
-        
+
 print("starting...")
 app.run()
