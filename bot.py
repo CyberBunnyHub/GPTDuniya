@@ -55,19 +55,18 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
     buttons = []
     for doc in page_data:
         try:
-            # Check if message still exists in the source channel
             await app.get_messages(doc["chat_id"], doc["message_id"])
-            except:
-                # Skip file if the message no longer exists
-                continue
-                
-                row = [InlineKeyboardButton(
-                    f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
-                    url=f"https://t.me/{bot_username}?start={doc['_id']}"
-                )]
-                if user_id == BOT_OWNER:
-                    row.append(InlineKeyboardButton("✘", callback_data=f"deletefile:{doc['_id']}"))
-                    buttons.append(row)
+            
+        except:
+            continue
+            
+            row = [InlineKeyboardButton(
+                f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
+                url=f"https://t.me/{bot_username}?start={doc['_id']}"
+            )]
+            if user_id == BOT_OWNER:
+                row.append(InlineKeyboardButton("✘", callback_data=f"deletefile:{doc['_id']}"))
+                buttons.append(row)
 
     if buttons:
         buttons.append([
