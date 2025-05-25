@@ -175,10 +175,11 @@ async def handle_callbacks(client, query: CallbackQuery):
         
         if not results:
             return await query.answer("No files found.", show_alert=True)
-            
-            markup = await generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)
-            await query.message.edit_reply_markup(markup)
-            return await query.answer()
+
+        # This part must NOT be inside the if-block
+        markup = await generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)
+        await query.message.edit_reply_markup(markup)
+        return await query.answer()
 
     elif data.startswith("deletefile:"):
         file_id = data.split(":")[1]
