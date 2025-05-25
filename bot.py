@@ -88,7 +88,7 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 async def start_cmd(client, message: Message):
     emoji_msg = await message.reply("🍿")
     image = random.choice(IMAGE_URLS)
-    user_mention = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
+    user_mention = f'<a href="tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>'
     caption = random.choice(CAPTIONS).format(user_mention=user_mention)
 
     if not await check_subscription(client, message.from_user.id):
@@ -107,17 +107,28 @@ async def start_cmd(client, message: Message):
             if not doc:
                 return await message.reply("❌ File not found.")
             original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
-            caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
+            file_caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
             await client.send_document(
                 chat_id=message.chat.id,
                 document=original_message.document.file_id,
-                caption=caption,
+                caption=file_caption,
                 parse_mode=ParseMode.HTML
             )
+            return  # <- IMPORTANT: stop further execution after sending the file
 
         except Exception as e:
             await emoji_msg.delete()
             return await message.reply(f"❌ Error retrieving file:\n\n{e}")
+
+    bot_username = (await client.get_me()).username
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{bot_username}?startgroup=true")],
+        [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
+        [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+    ])
+
+    await emoji_msg.delete()
+    await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
     bot_username = (await client.get_me()).username
     keyboard = InlineKeyboardMarkup([
