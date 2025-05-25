@@ -129,17 +129,7 @@ async def start_cmd(client, message: Message):
 
     await emoji_msg.delete()
     await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-
-    bot_username = (await client.get_me()).username
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{bot_username}?startgroup=true")],
-        [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
-        [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
-    ])
-
-    await emoji_msg.delete()
-    await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-
+    
 @app.on_message(filters.private & filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)
 async def search_and_track(client, message: Message):
     users_col.update_one(
@@ -182,7 +172,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         results = list(files_col.find({
             "normalized_name": {"$regex": normalized_query, "$options": "i"}
         }))
-
+        
         if not results:
             return await query.answer("No files found.", show_alert=True)
             
@@ -239,9 +229,9 @@ async def handle_callbacks(client, query: CallbackQuery):
         per_page = 5
 
         query_filter = {"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}
-        if selected_lang:
+        if selected_lang and selected_lang != "All":
             query_filter["language"] = selected_lang.capitalize()
-        results = list(files_col.find(query_filter))
+            results = list(files_col.find(query_filter))
 
         selected_docs = results[page * per_page: (page + 1) * per_page]
 
@@ -303,19 +293,13 @@ async def handle_callbacks(client, query: CallbackQuery):
 
     
     elif data == "back":
-        image = random.choice(IMAGE_URLS)
-        caption = random.choice(CAPTIONS).format(
-            user_mention=f'<a href="tg://user?id={query.from_user.id}">{query.from_user.first_name}</a>'
-        )
+        bot_username = (await client.get_me()).username
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
+            [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{bot_username}?startgroup=true")],
             [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
             [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
         ])
-        try:
-            return await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
-        except:
-            return await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+        return await query.message.edit_text("Welcome back!", reply_markup=keyboard)
 
     elif data.startswith("langs:"):
         _, query_text, _ = data.split(":", 2)
