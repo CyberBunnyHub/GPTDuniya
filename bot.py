@@ -230,7 +230,7 @@ async def handle_callbacks(client, query: CallbackQuery):
 
         query_filter = {"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}
         if selected_lang and selected_lang != "All":
-            query_filter["language"] = selected_lang.capitalize()
+            query_filter["language"] = selected_lang.lower()
         results = list(files_col.find(query_filter))
 
         selected_docs = results[page * per_page: (page + 1) * per_page]
@@ -354,7 +354,7 @@ def extract_language(text):
     text = text.lower()
     languages = ["hindi", "telugu", "tamil", "kannada", "malayalam", "english"]
     for lang in languages:
-        if f" {lang} " in f" {text} ":
+        if lang in text:
             return lang.capitalize()
     return "Unknown"
     
@@ -362,7 +362,7 @@ def extract_language(text):
 async def save_file(client, message: Message):
     media = message.document or message.video
     file_name = media.file_name
-    caption = msg.caption or ""
+    caption = message.caption or ""  # Fix: was `msg.caption` (undefined)
     combined_text = f"{file_name} {caption}".lower()
     normalized_name = normalize_text(file_name)
     language = extract_language(combined_text)
@@ -380,7 +380,7 @@ async def save_file(client, message: Message):
         "file_name": file_name,
         "normalized_name": normalized_name,
         "language": language,
-        "chat_id": chat_id,
+        "chat_id": message.chat.id,
         "message_id": message.id
     })
     print(f"Stored file: {file_name} | Language: {language}")
@@ -414,8 +414,8 @@ async def handle_forwarded_channel_message(client, message: Message):
                 language = extract_language(combined_text)
 
                 existing = files_col.find_one({
-                    "chat_id": message.chat.id,
-                    "message_id": message.id
+                    "chat_id": chat_id,
+                    "message_id": msg.id
                 })
 
                 if existing:
