@@ -415,56 +415,54 @@ async def handle_forwarded_channel_message(client, message: Message):
         batch_size = 100
 
         status_msg = await message.reply("⏳ Starting file scan...")
-
+        
         while True:
-            messages = await client.get_messages(chat_id, limit=batch_size, offset_id=offset_id)
-
+            messages = await client.get_chat_history(chat_id, offset_id=offset_id, limit=batch_size)
+            
             if not messages:
                 break
+                
+                found_any = False
+                
+                for msg in messages:
+                    if not msg or not (msg.document or msg.video):
+                        continue
+                        
+                        offset_id = msg.id  # Move here
+                        
+                        media = msg.document or msg.video
+                        file_name = media.file_name
+                        caption = msg.caption or ""
+                        combined_text = f"{file_name} {caption}".lower()
+                        normalized_name = normalize_text(file_name)
+                        language = extract_language(combined_text)
+                        
+                        existing = files_col.find_one({
+                            "chat_id": msg.chat.id,
+                            "message_id": msg.id
+                        })
+                        if existing:
+                            continue
+                            
+                            files_col.insert_one({
+                                "file_name": file_name,
+                                "normalized_name": normalized_name,
+                                "language": language,
+                                "chat_id": msg.chat.id,
+                                "message_id": msg.id
+                            })
+                            
+                            total += 1
+                            found_any = True
+                            
+                            if total % 10 == 0:
+                                try:
+                                    await status_msg.edit_text(f"📦 Collected {total} files...")
+                                    except:
+                                        pass
+                                        if not found_any:
+                                            break
 
-            found_any = False
-
-            for msg in messages:
-                offset_id = msg.id
-
-                if not msg or not (msg.document or msg.video):
-                    continue
-
-                media = msg.document or msg.video
-                file_name = media.file_name
-                caption = msg.caption or ""
-                combined_text = f"{file_name} {caption}".lower()
-                normalized_name = normalize_text(file_name)
-                language = extract_language(combined_text)
-
-                # Check for duplicate
-                existing = files_col.find_one({
-                    "chat_id": msg.chat.id,
-                    "message_id": msg.id
-                })
-                if existing:
-                    continue
-
-                files_col.insert_one({
-                    "file_name": file_name,
-                    "normalized_name": normalized_name,
-                    "language": language,
-                    "chat_id": msg.chat.id,
-                    "message_id": msg.id
-                })
-
-                total += 1
-                found_any = True
-
-                # Update progress every 10 files
-                if total % 10 == 0:
-                    try:
-                        await status_msg.edit_text(f"📦 Collected {total} files...")
-                    except:
-                        pass  # In case message is deleted or rate-limited
-
-            if not found_any:
-                break
 
         final_msg = f"✅ {total} new files added to database." if total > 0 else "ℹ️ No new files found."
         await status_msg.edit_text(final_msg)
