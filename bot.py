@@ -176,7 +176,6 @@ async def handle_callbacks(client, query: CallbackQuery):
         if not results:
             return await query.answer("No files found.", show_alert=True)
 
-        # This part must NOT be inside the if-block
         markup = await generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)
         await query.message.edit_reply_markup(markup)
         return await query.answer()
@@ -232,7 +231,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         query_filter = {"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}
         if selected_lang and selected_lang != "All":
             query_filter["language"] = selected_lang.capitalize()
-            results = list(files_col.find(query_filter))
+        results = list(files_col.find(query_filter))
 
         selected_docs = results[page * per_page: (page + 1) * per_page]
 
@@ -250,13 +249,12 @@ async def handle_callbacks(client, query: CallbackQuery):
                     caption=caption,
                     parse_mode=ParseMode.HTML
                 )
-                
                 await asyncio.sleep(0.5)
             except FloodWait as e:
                 await asyncio.sleep(e.value)
             except Exception as e:
                 print(f"Failed to send file: {e}")
-            
+
     elif data == "about":
         bot_username = (await client.get_me()).username
         about_text = f"""- - - - - - 🍿About Me - - - - - -
@@ -279,8 +277,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         groups = groups_col.count_documents({})
         files = files_col.count_documents({})
         return await query.message.edit_text(
-        f"""<b>- - - - - - 📉 Bot Stats - - - - - -</b>
-        
+            f"""<b>- - - - - - 📉 Bot Stats - - - - - -</b>
 <b>Total Users:</b> {users}
 <b>Total Groups:</b> {groups}
 <b>Total Files:</b> {files}
@@ -292,72 +289,44 @@ async def handle_callbacks(client, query: CallbackQuery):
             parse_mode=ParseMode.HTML
         )
 
-    
     elif data == "back":
         bot_username = (await client.get_me()).username
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{bot_username}?startgroup=true")],
-            [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
-            [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
-        ])
-        return await query.message.edit_text("Welcome back!", reply_markup=keyboard)
-
-    elif data.startswith("langs:"):
-        _, query_text, _ = data.split(":", 2)
-        encoded_query = base64.urlsafe_b64encode(query_text.encode()).decode()
-        buttons = [[InlineKeyboardButton(lang, callback_data=f"langselect:{encoded_query}:{lang}")]
-                   for lang in PREDEFINED_LANGUAGES]
-        buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
-        markup = InlineKeyboardMarkup(buttons)
-        await query.message.edit_text(
-            f"Sᴇʟᴇᴄᴛ A Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
-            reply_markup=markup,
-            parse_mode=ParseMode.HTML
+        image = random.choice(IMAGE_URLS)
+        caption = random.choice(CAPTIONS).format(user_mention=f"<a href='tg://user?id={query.from_user.id}'>{query.from_user.first_name}</a>")
+        return await query.message.edit_media(
+            media=InputMediaPhoto(media=image, caption=caption, parse_mode=ParseMode.HTML),
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{bot_username}?startgroup=true")],
+                [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
+                [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+            ])
         )
-        return await query.answer()
-
-    elif data.startswith("langselect:"):
-        parts = data.split(":", 2)
-        if len(parts) < 3:
-            return await query.answer("Invalid language selection.", show_alert=True)
-
-        _, encoded_query, selected_lang = parts
-        try:
-            query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode()
-            selected_lang = selected_lang.capitalize()
-
-            results = list(files_col.find({
-                "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
-                "language": selected_lang
-            }))
-
-            if not results:
-                markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
-                return await query.message.edit_text(
-                    f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=markup
-                )
-
-            markup = generate_pagination_buttons(
-                results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id
-            )
-            try:
-                await query.message.edit_text(
-                    f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=markup
-                )
-            except MessageNotModified:
-                pass
-            return await query.answer()
-        except Exception as e:
-            print("Language selection error:", e)
-            return await query.answer("Something went wrong.", show_alert=True)
-
-    else:
-        return await query.answer("Unknown action.", show_alert=True)
         
+    elif data.startswith("langs:"):
+        query_text = data.split(":", 1)[1]
+        query_filter = {
+            "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}
+        }
+        available_languages = files_col.distinct("language", query_filter)
+        available_languages = sorted([lang for lang in available_languages if lang])
+
+        if not available_languages:
+            return await query.answer("No languages found for this title.", show_alert=True)
+
+        lang_buttons = []
+        for lang in available_languages:
+            lang_buttons.append([
+                InlineKeyboardButton(lang, callback_data=f"getfiles:{query_text}:0:{lang}")
+            ])
+
+        lang_buttons.append([
+            InlineKeyboardButton("Back", callback_data=f"search:{query_text}:0")
+        ])
+
+        await query.message.edit_reply_markup(
+            reply_markup=InlineKeyboardMarkup(lang_buttons)
+    )
+
 @app.on_message(filters.group & filters.text)
 async def track_group(client, message: Message):
     groups_col.update_one(
@@ -365,6 +334,7 @@ async def track_group(client, message: Message):
         {"$set": {"title": message.chat.title}},
         upsert=True
     )
+    
 @app.on_message(filters.new_chat_members)
 async def welcome_group(client, message: Message):
     for user in message.new_chat_members:
