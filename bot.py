@@ -40,7 +40,7 @@ async def check_subscription(client, user_id):
         return False
     except:
         return True
-def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All"):
+markup = await generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All"):
     total_pages = (len(results) + per_page - 1) // per_page
     start = page * per_page
     end = start + per_page
