@@ -400,12 +400,16 @@ async def handle_forwarded_channel_message(client, message: Message):
 
         while True:
             found_any = False
-            async for msg in client.iter_history(chat_id, offset_id=offset_id, limit=batch_size):
-                offset_id = msg.id  # Move offset for next batch
-
+            async for msg in client.get_chat_history(chat_id, offset_id=offset_id, limit=batch_size):
+                offset_id = msg.id
+                
                 media = msg.document or msg.video
-                if not media or not getattr(media, "file_id", None):
-                    continue  # Skip if no valid media
+                if not media:
+                    continue
+                    
+                    file_id = getattr(media, "file_id", None)
+                    if not file_id:
+                        continue
 
                 file_name = getattr(media, "file_name", "Unnamed")
                 caption = msg.caption or ""
