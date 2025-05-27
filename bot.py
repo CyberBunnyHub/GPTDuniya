@@ -409,10 +409,11 @@ async def handle_forwarded_channel_message(client, message: Message):
         total = 0
         status_msg = await message.reply("⏳ Starting file scan...\nCollected: 0 files")
 
-        async for msg in client.iter_messages(chat_id):
+        async for msg in client.get_chat_history(chat_id):
             media = msg.document or msg.video
-            if not media or not getattr(media, "file_id", None):
+            if not media or not hasattr(media, "file_id"):
                 continue
+
 
             file_name = getattr(media, "file_name", "Unnamed")
             caption = msg.caption or ""
