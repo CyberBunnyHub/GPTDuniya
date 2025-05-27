@@ -398,66 +398,7 @@ def extract_language(text):
         if f" {lang} " in f" {text} ":  
             return lang.capitalize()  
     return "Unknown"  
-  
-@app.on_message(filters.private & filters.forwarded)
-async def handle_forwarded_channel_message(client, message: Message):
-    if not message.forward_from_chat or message.forward_from_chat.type.name != "CHANNEL":
-        return await message.reply("❌ Please forward a message from a channel.")
-
-    try:
-        chat_id = message.forward_from_chat.id
-        start_msg_id = message.forward_from_message_id or message.id  # fallback
-        total = 0
-        status_msg = await message.reply("⏳ Scanning channel...\nCollected: 0 files")
-
-        # Range of messages to check (e.g., last 100 messages)
-        for msg_id in range(start_msg_id, start_msg_id - 1000, -1):  # Check backward
-            try:
-                msg = await client.get_messages(chat_id, msg_id)
-            except Exception:
-                continue  # Skip missing/deleted messages
-
-            if not msg:
-                continue
-
-            media = msg.document or msg.video
-            if not media or not hasattr(media, "file_id"):
-                continue
-
-            file_name = getattr(media, "file_name", "Unnamed")
-            caption = msg.caption or ""
-            combined_text = f"{file_name} {caption}".lower()
-            normalized_name = normalize_text(file_name)
-            language = extract_language(combined_text)
-
-            existing = files_col.find_one({
-                "chat_id": chat_id,
-                "message_id": msg.id
-            })
-            if existing:
-                continue
-
-            files_col.insert_one({
-                "file_name": file_name,
-                "normalized_name": normalized_name,
-                "language": language,
-                "chat_id": chat_id,
-                "message_id": msg.id
-            })
-
-            total += 1
-            if total % 10 == 0:
-                try:
-                    await status_msg.edit_text(f"⏳ Scanning...\nCollected: {total} files")
-                except:
-                    pass
-
-        final_msg = f"✅ Done!\nTotal new files added: {total}" if total > 0 else "ℹ️ No new files found."
-        await status_msg.edit_text(final_msg)
-
-    except Exception as e:
-        await message.reply(f"❌ Failed to add files.\n\nError: `{e}`")
-
+    
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))  
 async def save_file(client, message: Message):  
     media = message.document or message.video  
