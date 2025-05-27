@@ -150,12 +150,13 @@ async def search_and_track(client, message: Message):
             [InlineKeyboardButton("Joined", callback_data="checksub")]  
         ])  
         return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)  
+        
+        query = normalize_text(message.text.strip())
+        results = list(files_col.find({
+            "normalized_name": {"$regex": query, "$options": "i"},
+            "language": {"$in": [selected_lang]}  # Multi-language support
+        }))
   
-    query = message.text.strip()  
-    normalized_query = normalize_text(query)  
-    results = list(files_col.find({  
-        "normalized_name": {"$regex": normalized_query, "$options": "i"}  
-    }))  
   
     if not results:  
         return  
@@ -166,19 +167,25 @@ async def search_and_track(client, message: Message):
         reply_markup=markup,  
         parse_mode=ParseMode.HTML  
     )  
-  
-@app.on_callback_query()  
-async def handle_callbacks(client, query: CallbackQuery):  
-    data = query.data  
-  
-    if data.startswith(("search:", "movie:")):  
-        prefix, page_str, query_text = data.split(":", 2)  
-        page = int(page_str)  
-        normalized_query = normalize_text(query_text)  
-        results = list(files_col.find({  
-            "normalized_name": {"$regex": normalized_query, "$options": "i"}  
-        }))  
-  
+    
+@app.on_callback_query()
+async def handle_callbacks(client, query: CallbackQuery):
+    data = query.data
+    if data.startswith("search:"):
+        _, page_str, query_text, lang = data.split(":", 3)
+        page = int(page_str)
+        normalized_query = normalize_text(query_text)
+        language = lang.lower()
+
+        query_filter = {
+            "normalized_name": {"$regex": normalized_query, "$options": "i"}
+        }
+
+        if language != "all":
+            query_filter["language"] = {"$in": [language]}
+
+        results = list(files_col.find(query_filter))
+        
         if not results:  
             return await query.answer("No files found.", show_alert=True)  
   
@@ -439,38 +446,38 @@ async def process_forwarded_message(client, message: Message):
             msg = await client.get_messages(chat_id, msg_id)
             media = msg.document or msg.video
             if media:
-                file_name = media.file_name if media.file_name else "Unknown"
-                file_id = media.file_id
-                caption = caption  
+                file_name = media.file_name or "Unknown"
+                caption = msg.caption or ""
                 combined_text = f"{file_name} {caption}".lower()
-                normalized_name = normalize_text(file_name)  
+                normalized_name = normalize_text(file_name)
                 file_size = media.file_size
                 mime_type = media.mime_type
                 language = extract_language(combined_text)
-                file_type = (
-                    "document" if msg.document else
-                    "video" if msg.video else
-                    "unknown"
-                )
-                
-                files_col.insert_one({  
-                    "file_name": file_name,  
-                    "normalized_name": normalized_name,  
+                file_type = "document" if msg.document else "video"
+
+                files_col.insert_one({
+                    "file_name": file_name,
+                    "normalized_name": normalized_name,
                     "language": language,
                     "file_type": file_type,
                     "mime_type": mime_type,
                     "file_size": file_size,
-                    "file_id": file_id,
-                    "chat_id": message.chat.id,  
-                    "message_id": message.id  
+                    "file_id": media.file_id,
+                    "chat_id": chat_id,
+                    "message_id": msg.id
                 })
 
                 count += 1
-                await live_message.edit_text(f"Scanning files... {count} found")
-        except Exception:
+                new_text = f"Scanning files... {count} found"
+                if live_message.text != new_text:
+                    await live_message.edit_text(new_text)
+        except Exception as e:
+            print(f"Error at message {msg_id}: {e}")
             break
 
-    await live_message.edit_text(f"✅ Done! {count} files added.")
-    
+    final_text = f"✅ Done! {count} files added."
+    if live_message.text != final_text:
+        await live_message.edit_text(final_text)
+
 print("starting...")  
 app.run()
