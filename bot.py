@@ -424,7 +424,34 @@ async def save_file(client, message: Message):
         "chat_id": message.chat.id,  
         "message_id": message.id  
     })  
-    print(f"Stored file: {file_name} | Language: {language}")  
-  
+    print(f"Stored file: {file_name} | Language: {language}")
+    
+@app.on_message(filters.private & filters.forwarded)
+async def process_forwarded_message(message: Message, client):
+    if not message.forward_from_chat or not message.forward_from_message_id:
+        return "Please forward the last message from a channel with quotes."
+
+    chat_id = message.forward_from_chat.id
+    last_msg_id = message.forward_from_message_id
+
+    # Try retrieving messages backwards
+    count = 0
+    live_message = await message.reply_text("Scanning files... 0 found")
+
+    for msg_id in range(last_msg_id, 0, -1):
+        try:
+            msg = await client.get_messages(chat_id, msg_id)
+            if msg.document or msg.video or msg.audio:
+                count += 1
+                await live_message.edit_text(f"Scanning files... {count} found")
+
+                # You would insert to MongoDB here
+                # files_col.insert_one({...})
+        except Exception:
+            break
+
+    await live_message.edit_text(f"✅ Done! {count} files added.")
+    return
+    
 print("starting...")  
 app.run()
