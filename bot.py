@@ -136,41 +136,45 @@ async def start_cmd(client, message: Message):
     await emoji_msg.delete()
     await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
     
-@app.on_message(filters.private & filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)  
-async def search_and_track(client, message: Message):  
-    users_col.update_one(  
-        {"_id": message.from_user.id},  
-        {"$set": {"name": message.from_user.first_name}},  
-        upsert=True  
-    )  
-  
-    if not await check_subscription(client, message.from_user.id):  
-        keyboard = InlineKeyboardMarkup([  
-            [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],  
-            [InlineKeyboardButton("Joined", callback_data="checksub")]  
-        ])  
-        return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)  
-        
-        query = normalize_text(message.text.strip())
-        results = list(files_col.find({
-            "normalized_name": {"$regex": query, "$options": "i"},
-            "language": {"$in": [selected_lang]}  # Multi-language support
-        }))
-  
-  
-    if not results:  
-        return  
-  
-    markup = generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id)  
-    await message.reply(  
-        f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>",  
-        reply_markup=markup,  
-        parse_mode=ParseMode.HTML  
-    )  
+@app.on_message(filters.private & filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)
+async def search_and_track(client, message: Message):
+    users_col.update_one(
+        {"_id": message.from_user.id},
+        {"$set": {"name": message.from_user.first_name}},
+        upsert=True
+    )
+
+    if not await check_subscription(client, message.from_user.id):
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
+            [InlineKeyboardButton("Joined", callback_data="checksub")]
+        ])
+        await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
+        return  # <-- Exit early if not subscribed
+
+    # Only runs if subscribed
+    user_query = message.text.strip()
+    query = normalize_text(user_query)
+
+    # Search all results regardless of language
+    results = list(files_col.find({
+        "normalized_name": {"$regex": query, "$options": "i"}
+    }))
+
+    if not results:
+        return  # Stay silent if nothing found (as per your earlier preference)
+
+    markup = generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id)
+    await message.reply(
+        f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>",
+        reply_markup=markup,
+        parse_mode=ParseMode.HTML
+    )
     
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
+    
     if data.startswith("search:"):
         _, page_str, query_text, lang = data.split(":", 3)
         page = int(page_str)
