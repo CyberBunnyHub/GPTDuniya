@@ -481,7 +481,6 @@ async def save_file(client, message: Message):
     })
     print(f"Stored file: {file_name} | Language: {language}")
 
-
 @app.on_message(filters.private & filters.forwarded)
 async def process_forwarded_message(client, message: Message):
     if not message.forward_from_chat or not message.forward_from_message_id:
@@ -543,17 +542,17 @@ async def process_forwarded_message(client, message: Message):
                     await live_message.edit_text(new_text)
                 except MessageNotModified:
                     pass
-
-        except Exception as e:
-            print(f"Error at message {msg_id}: {e}")
-            break
-
-    final_text = f"✅ Done! {count} files added."
-    if live_message.text != final_text:
-        try:
-            await live_message.edit_text(final_text)
-        except MessageNotModified:
-            pass
+                
+                except Exception as e:
+                    print(f"Error at message {msg_id}: {e}")
+                    break
+                    
+                    final_text = f"✅ Done! {count} files added."
+                    if live_message.text != final_text:
+                        try:
+                            await live_message.edit_text(final_text)
+                        except MessageNotModified:
+                            pass
             
 print("starting...")
 app.run()
