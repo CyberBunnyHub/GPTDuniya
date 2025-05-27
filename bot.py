@@ -437,28 +437,32 @@ async def process_forwarded_message(client, message: Message):
     for msg_id in range(last_msg_id, 0, -1):
         try:
             msg = await client.get_messages(chat_id, msg_id)
-            media = msg.document or msg.video or msg.audio
+            media = msg.document or msg.video
             if media:
                 file_name = media.file_name if media.file_name else "Unknown"
                 file_id = media.file_id
+                caption = caption  
+                combined_text = f"{file_name} {caption}".lower()
+                normalized_name = normalize_text(file_name)  
                 file_size = media.file_size
                 mime_type = media.mime_type
+                language = extract_language(combined_text)
                 file_type = (
                     "document" if msg.document else
                     "video" if msg.video else
-                    "audio" if msg.audio else
                     "unknown"
                 )
-
-                # Insert into MongoDB
-                files_col.insert_one({
-                    "file_name": file_name,
-                    "file_id": file_id,
-                    "file_size": file_size,
-                    "mime_type": mime_type,
+                
+                files_col.insert_one({  
+                    "file_name": file_name,  
+                    "normalized_name": normalized_name,  
+                    "language": language,
                     "file_type": file_type,
-                    "chat_id": chat_id,
-                    "message_id": msg.id
+                    "mime_type": mime_type,
+                    "file_size": file_size,
+                    "file_id": file_id,
+                    "chat_id": message.chat.id,  
+                    "message_id": message.id  
                 })
 
                 count += 1
