@@ -4,6 +4,7 @@ import re
 import base64  
 from bson import ObjectId  
 from pymongo import MongoClient  
+from config import files_col
 from pyrogram import Client, filters  
 from pyrogram.enums import ParseMode  
 from pyrogram.errors import MessageNotModified  
@@ -427,31 +428,49 @@ async def save_file(client, message: Message):
     print(f"Stored file: {file_name} | Language: {language}")
     
 @app.on_message(filters.private & filters.forwarded)
-async def process_forwarded_message(message: Message, client):
+async def process_forwarded_message(client, message: Message):
     if not message.forward_from_chat or not message.forward_from_message_id:
-        return "Please forward the last message from a channel with quotes."
+        await message.reply_text("Please forward the last message from a channel with quotes.")
+        return
 
     chat_id = message.forward_from_chat.id
     last_msg_id = message.forward_from_message_id
-
-    # Try retrieving messages backwards
     count = 0
     live_message = await message.reply_text("Scanning files... 0 found")
 
     for msg_id in range(last_msg_id, 0, -1):
         try:
             msg = await client.get_messages(chat_id, msg_id)
-            if msg.document or msg.video or msg.audio:
+            media = msg.document or msg.video or msg.audio
+            if media:
+                file_name = media.file_name if media.file_name else "Unknown"
+                file_id = media.file_id
+                file_size = media.file_size
+                mime_type = media.mime_type
+                file_type = (
+                    "document" if msg.document else
+                    "video" if msg.video else
+                    "audio" if msg.audio else
+                    "unknown"
+                )
+
+                # Insert into MongoDB
+                files_col.insert_one({
+                    "file_name": file_name,
+                    "file_id": file_id,
+                    "file_size": file_size,
+                    "mime_type": mime_type,
+                    "file_type": file_type,
+                    "chat_id": chat_id,
+                    "message_id": msg.id
+                })
+
                 count += 1
                 await live_message.edit_text(f"Scanning files... {count} found")
-
-                # You would insert to MongoDB here
-                # files_col.insert_one({...})
         except Exception:
             break
 
     await live_message.edit_text(f"✅ Done! {count} files added.")
-    return
     
 print("starting...")  
 app.run()
