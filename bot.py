@@ -558,6 +558,6 @@ async def process_forwarded_message(client, message: Message):
                             await live_message.edit_text(final_text)
                         except MessageNotModified:
                             pass
-            
-print("starting...")
-app.run()
+                            
+                            print("starting...")
+                            app.run()
