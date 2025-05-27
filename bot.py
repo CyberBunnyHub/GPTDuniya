@@ -174,29 +174,44 @@ async def search_and_track(client, message: Message):
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
-    
-    if data.startswith("search:"):
-        _, page_str, query_text, lang = data.split(":", 3)
-        page = int(page_str)
-        normalized_query = normalize_text(query_text)
-        language = lang.lower()
 
-        query_filter = {
-            "normalized_name": {"$regex": normalized_query, "$options": "i"}
-        }
+    try:
+        parts = data.split(":", 3)
 
-        if language != "all":
-            query_filter["language"] = {"$in": [language]}
+        if parts[0] in ["search", "movie"]:
+            if len(parts) == 4:
+                prefix, page_str, query_text, lang = parts
+            else:
+                prefix, page_str, query_text = parts
+                lang = None  # fallback if language not provided
 
-        results = list(files_col.find(query_filter))
-        
-        if not results:  
-            return await query.answer("No files found.", show_alert=True)  
-  
-        markup = generate_pagination_buttons(results, (await client.get_me()).username, page, 5, prefix, query_text, query.from_user.id)  
-        await query.message.edit_reply_markup(markup)  
-        return await query.answer()  
-  
+            page = int(page_str)
+            normalized_query = normalize_text(query_text)
+
+            query_filter = {
+                "normalized_name": {"$regex": normalized_query, "$options": "i"}
+            }
+
+            if lang:
+                query_filter["language"] = lang
+
+            results = list(files_col.find(query_filter))
+
+            if not results:
+                return await query.answer("No files found.", show_alert=True)
+
+            markup = generate_pagination_buttons(
+                results, (await client.get_me()).username, page, 5,
+                prefix, query_text, query.from_user.id, lang
+            )
+
+            await query.message.edit_reply_markup(markup)
+            return await query.answer()
+
+    except Exception as e:
+        print(f"Error in callback: {e}")
+        await query.answer("An error occurred.", show_alert=True)
+
     elif data.startswith("deletefile:"):  
         file_id = data.split(":")[1]  
         result = files_col.find_one({"_id": ObjectId(file_id)})  
