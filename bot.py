@@ -545,6 +545,10 @@ async def process_forwarded_message(client, message: Message):
             await live_message.edit_text(final_text)
         except MessageNotModified:
             pass
+            
+            for msg_id in range(last_msg_id, max(last_msg_id-100, 0), -1):
+                msg = await client.get_messages(chat_id, msg_id)
+                print(f"msg_id={msg_id}, document={getattr(msg, 'document', None)}, video={getattr(msg, 'video', None)}, video_note={getattr(msg, 'video_note', None)}, media_group_id={getattr(msg, 'media_group_id', None)}")
 
 print("starting...")
 app.run()
