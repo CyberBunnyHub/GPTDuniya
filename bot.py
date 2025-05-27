@@ -448,33 +448,43 @@ async def process_forwarded_message(client, message: Message):
     for msg_id in range(last_msg_id, 0, -1):
         try:
             msg = await client.get_messages(chat_id, msg_id)
+            if not msg:
+                continue
+
             media = msg.document or msg.video
-            if media:
-                file_name = media.file_name or "Unknown"
-                caption = msg.caption or ""
-                combined_text = f"{file_name} {caption}".lower()
-                normalized_name = normalize_text(file_name)
-                file_size = media.file_size
-                mime_type = media.mime_type
-                language = extract_language(combined_text)
-                file_type = "document" if msg.document else "video"
+            if not media:
+                continue  # skip messages without document/video
 
-                files_col.insert_one({
-                    "file_name": file_name,
-                    "normalized_name": normalized_name,
-                    "language": language,
-                    "file_type": file_type,
-                    "mime_type": mime_type,
-                    "file_size": file_size,
-                    "file_id": media.file_id,
-                    "chat_id": chat_id,
-                    "message_id": msg.id
-                })
+            file_name = media.file_name or "Unknown"
+            caption = msg.caption or ""
+            combined_text = f"{file_name} {caption}".lower()
+            normalized_name = normalize_text(file_name)
+            file_size = media.file_size
+            mime_type = media.mime_type
+            language = extract_language(combined_text)
+            file_type = "document" if msg.document else "video"
 
-                count += 1
-                new_text = f"Scanning files... {count} found"
-                if live_message.text != new_text:
-                    await live_message.edit_text(new_text)
+            # Skip if file_id is not present
+            if not hasattr(media, "file_id") or not media.file_id:
+                continue
+
+            files_col.insert_one({
+                "file_name": file_name,
+                "normalized_name": normalized_name,
+                "language": language,
+                "file_type": file_type,
+                "mime_type": mime_type,
+                "file_size": file_size,
+                "file_id": media.file_id,
+                "chat_id": chat_id,
+                "message_id": msg.id
+            })
+
+            count += 1
+            new_text = f"Scanning files... {count} found"
+            if live_message.text != new_text:
+                await live_message.edit_text(new_text)
+
         except Exception as e:
             print(f"Error at message {msg_id}: {e}")
             break
