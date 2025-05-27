@@ -114,42 +114,39 @@ async def start_cmd(client, message: Message):
 
     args = message.text.split()
     if len(args) > 1:
-        try:
-            doc = files_col.find_one({"_id": ObjectId(args[1])})
-            await emoji_msg.delete()
+    try:
+        doc = files_col.find_one({"_id": ObjectId(args[1])})
+        await emoji_msg.delete()
 
-            if not doc:
-                return await message.reply("❌ File not found.")
+        if not doc:
+            return await message.reply("❌ File not found.")
 
-            original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
-            caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
-            
-            if original_message.document:
-                await client.send_document(
-                    chat_id=message.chat.id,
-                    document=original_message.document.file_id,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML
-                )
-            
-            elif original_message.video:
-                await client.send_video(
-                    chat_id=message.chat.id,
-                    video=original_message.video.file_id,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML
-                )
-            
-            else:
-                await message.reply("❌ File not found or unsupported media type.")
-                
-                return  # ✅ Stop execution after sending the file
-        
-        except Exception as e:
-            await emoji_msg.delete()
-            return await message.reply(f"❌ Error retrieving file:\n\n{e}")
+        original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
+        caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
 
-    # Default /start message
+        if original_message.document:
+            await client.send_document(
+                chat_id=message.chat.id,
+                document=original_message.document.file_id,
+                caption=caption,
+                parse_mode=ParseMode.HTML
+            )
+            return  # <-- Fix: return after sending!
+        elif original_message.video:
+            await client.send_video(
+                chat_id=message.chat.id,
+                video=original_message.video.file_id,
+                caption=caption,
+                parse_mode=ParseMode.HTML
+            )
+            return  # <-- Fix: return after sending!
+        else:
+            return await message.reply("❌ File not found or unsupported media type.")
+
+    except Exception as e:
+        await emoji_msg.delete()
+        return await message.reply(f"❌ Error retrieving file:\n\n{e}")
+
     bot_username = (await client.get_me()).username
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{bot_username}?startgroup=true")],
