@@ -28,10 +28,10 @@ db = mongo["autofilter"]
 files_col = db["files"]  
 users_col = db["users"]  
 groups_col = db["groups"]  
-  
-def normalize_text(text):  
-    return re.sub(r'\W+', '', text.lower())  
-  
+
+def normalize_text(text):
+    return re.sub(r"[^\w\s]", " ", text).lower().strip()
+    
 async def check_subscription(client, user_id):  
     try:  
         member = await client.get_chat_member(UPDATE_CHANNEL, user_id)  
@@ -391,20 +391,17 @@ async def welcome_group(client, message: Message):
             ])  
             await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)  
   
-def extract_language(text):  
-    text = text.lower()  
-    languages = ["hindi", "telugu", "tamil", "kannada", "malayalam", "english"]  
-    for lang in languages:  
-        if f" {lang} " in f" {text} ":  
-            return lang.capitalize()  
-    return "Unknown"  
+def extract_language(text):
+    languages = ["hindi", "telugu", "tamil", "malayalam", "kannada", "english", "bengali"]
+    found = [lang for lang in languages if lang in text.lower()]
+    return found or ["unknown"]
     
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))  
 async def save_file(client, message: Message):  
     media = message.document or message.video  
     file_name = media.file_name  
     caption = caption  
-    combined_text = f"{file_name} {caption}".lower()  
+    combined_text = f"{file_name} {caption}".lower()
     normalized_name = normalize_text(file_name)  
     language = extract_language(combined_text)  
   
