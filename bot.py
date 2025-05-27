@@ -4,7 +4,6 @@ import re
 import base64  
 from bson import ObjectId  
 from pymongo import MongoClient  
-from config import files_col
 from pyrogram import Client, filters  
 from pyrogram.enums import ParseMode  
 from pyrogram.errors import MessageNotModified  
