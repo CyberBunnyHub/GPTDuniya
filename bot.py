@@ -204,7 +204,7 @@ async def search_and_track(client, message: Message):
 async def cleanup_db(client, message: Message):
     await message.reply_text("🔍 Scanning for orphaned (deleted in channel) files, please wait...")
     deleted_count = 0
-    async for doc in files_col.find({}):
+    for doc in files_col.find({}):
         try:
             await client.get_messages(doc["chat_id"], doc["message_id"])
         except Exception:
