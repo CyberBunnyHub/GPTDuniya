@@ -277,20 +277,11 @@ async def handle_callbacks(client, query: CallbackQuery):
             users_count = users_col.count_documents({})
             groups_count = groups_col.count_documents({})
             files_count = files_col.count_documents({})
-            files = list(files_col.find({}))
-            file_names = []
-            for doc in files:
-                try:
-                    await client.get_messages(doc["chat_id"], doc["message_id"])
-                    file_names.append(f"- {doc.get('file_name', 'Unnamed')}")
-                except Exception:
-                    continue
-            files_text = "\n".join(file_names) if file_names else "No files found."
             stats_text = (
-    f"<b>- - - - - - 📉 Bot Stats - - - - - -</b>\n"
-    f"<b>Total Users:</b> {users_count}\n"
-    f"<b>Total Groups:</b> {groups_count}\n"
-    f"<b>Total Files:</b> {files_count}\n"
+                f"<b>- - - - - - 📉 Bot Stats - - - - - -</b>\n"
+                f"<b>Total Users:</b> {users_count}\n"
+                f"<b>Total Groups:</b> {groups_count}\n"
+                f"<b>Total Files:</b> {files_count}\n"
             )
             return await query.message.edit_text(
                 stats_text,
@@ -496,22 +487,25 @@ async def process_forwarded_message(client, message: Message):
             if not media:
                 continue
 
-            # Copy to DB_CHANNEL
-            sent = await client.copy_message(DB_CHANNEL, chat_id, msg_id)
             file_name = media.file_name or "Unknown"
+            file_size = media.file_size  # in bytes
+            file_id = media.file_id
             caption = msg.caption or ""
             combined_text = f"{file_name} {caption}".lower()
             normalized_name = normalize_text(file_name)
             language = extract_language(combined_text)
             file_type = "document" if msg.document else "video"
 
-            # Avoid duplicates
+            # Check for duplicate by file_name and file_size
             existing = files_col.find_one({
-                "chat_id": DB_CHANNEL,
-                "message_id": sent.id
+                "file_name": file_name,
+                "file_size": file_size
             })
             if existing:
                 continue
+
+            # Copy to DB_CHANNEL
+            sent = await client.copy_message(DB_CHANNEL, chat_id, msg_id)
 
             files_col.insert_one({
                 "file_name": file_name,
@@ -519,7 +513,9 @@ async def process_forwarded_message(client, message: Message):
                 "language": language,
                 "file_type": file_type,
                 "chat_id": DB_CHANNEL,
-                "message_id": sent.id
+                "message_id": sent.id,
+                "file_id": file_id,
+                "file_size": file_size
             })
             count += 1
             new_text = f"Scanning files... {count} found"
@@ -566,15 +562,17 @@ async def welcome_group(client, message: Message):
 async def save_file(client, message: Message):
     media = message.document or message.video
     file_name = media.file_name or "Unknown"
+    file_size = media.file_size
+    file_id = media.file_id
     caption = message.caption or ""
     combined_text = f"{file_name} {caption}".lower()
     normalized_name = normalize_text(file_name)
     language = extract_language(combined_text)
 
-    # Check for duplicate
+    # Check for duplicate by file_name and file_size
     existing = files_col.find_one({
-        "chat_id": message.chat.id,
-        "message_id": message.id
+        "file_name": file_name,
+        "file_size": file_size
     })
     if existing:
         print(f"Skipped duplicate: {file_name}")
@@ -585,7 +583,9 @@ async def save_file(client, message: Message):
         "normalized_name": normalized_name,
         "language": language,
         "chat_id": message.chat.id,
-        "message_id": message.id
+        "message_id": message.id,
+        "file_id": file_id,
+        "file_size": file_size
     })
     print(f"Stored file: {file_name} | Language: {language}")
 
