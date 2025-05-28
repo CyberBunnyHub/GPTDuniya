@@ -28,10 +28,8 @@ files_col = db["files"]
 users_col = db["users"]
 groups_col = db["groups"]
 
-
 def normalize_text(text):
     return re.sub(r"[^\w\s]", " ", text).lower().strip()
-
 
 async def check_subscription(client, user_id):
     try:
@@ -42,14 +40,12 @@ async def check_subscription(client, user_id):
     except Exception:
         return True
 
-
 def extract_language(text):
     languages = ["hindi", "telugu", "tamil", "malayalam", "kannada", "english", "bengali"]
     for lang in languages:
         if lang in text.lower():
             return lang.capitalize()
     return "Unknown"
-
 
 def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All"):
     total_pages = (len(results) + per_page - 1) // per_page
@@ -94,7 +90,6 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
             buttons.append(nav_buttons)
 
     return InlineKeyboardMarkup(buttons)
-
 
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
@@ -191,7 +186,6 @@ async def search_and_track(client, message: Message):
         parse_mode=ParseMode.HTML
     )
 
-
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
@@ -252,11 +246,8 @@ async def handle_callbacks(client, query: CallbackQuery):
                 parse_mode=ParseMode.HTML
             )
 
-@app.on_callback_query()
-async def handle_callbacks(client, query: CallbackQuery):
-    data = query.data
-    try:
-        if data == "showstats":
+        # Show statistics
+        elif data == "showstats":
             users_count = users_col.count_documents({})
             groups_count = groups_col.count_documents({})
             files_count = files_col.count_documents({})
@@ -279,11 +270,6 @@ async def handle_callbacks(client, query: CallbackQuery):
                 ]),
                 parse_mode=ParseMode.HTML
             )
-        # ... other callback handlers ...
-    except Exception as e:
-        print(f"Callback data: {data}")
-        print(f"Error in callback: {e}")
-        await query.answer("An error occurred.", show_alert=True)
 
         # Database
         elif data == "database":
@@ -442,7 +428,6 @@ async def handle_callbacks(client, query: CallbackQuery):
         print(f"Error in callback: {e}")
         await query.answer("An error occurred.", show_alert=True)
 
-
 @app.on_message(filters.group & filters.text)
 async def track_group(client, message: Message):
     groups_col.update_one(
@@ -450,7 +435,6 @@ async def track_group(client, message: Message):
         {"$set": {"title": message.chat.title}},
         upsert=True
     )
-
 
 @app.on_message(filters.new_chat_members)
 async def welcome_group(client, message: Message):
@@ -466,7 +450,6 @@ async def welcome_group(client, message: Message):
                 [InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP), InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)]
             ])
             await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-
 
 @app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
 async def save_file(client, message: Message):
