@@ -326,8 +326,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 ]),
                 parse_mode=ParseMode.HTML
             )
-
-        # Show statistics
+        
         elif data == "showstats":
             users = users_col.count_documents({})
             groups = groups_col.count_documents({})
@@ -336,7 +335,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             file_names = [f"- {doc.get('file_name', 'Unnamed')}" for doc in files]
             files_text = "\n".join(file_names) if file_names else "No files found."
             return await query.message.edit_text(
-                f"""<b>- - - - - - 📉 Bot Stats - - - - - -</b>
+f"""<b>- - - - - - 📉 Bot Stats - - - - - -</b>
 <b>Total Users:</b> {users}
 <b>Total Groups:</b> {groups}
 <b>Total Files:</b> {files_count}
@@ -349,7 +348,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 ]),
                 parse_mode=ParseMode.HTML
             )
-
+            
         # Go back to main menu
         elif data == "back":
             image = random.choice(IMAGE_URLS)
