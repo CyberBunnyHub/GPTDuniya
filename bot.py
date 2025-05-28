@@ -287,12 +287,10 @@ async def handle_callbacks(client, query: CallbackQuery):
                     continue
             files_text = "\n".join(file_names) if file_names else "No files found."
             stats_text = (
-                f"<b>- - - - - - 📉 Bot Stats - - - - - -</b>\n"
-                f"<b>Total Users:</b> {users_count}\n"
-                f"<b>Total Groups:</b> {groups_count}\n"
-                f"<b>Total Files:</b> {files_count}\n"
-                f"<b>Files List:</b>\n"
-                f"{files_text}"
+    f"<b>- - - - - - 📉 Bot Stats - - - - - -</b>\n"
+    f"<b>Total Users:</b> {users_count}\n"
+    f"<b>Total Groups:</b> {groups_count}\n"
+    f"<b>Total Files:</b> {files_count}\n"
             )
             return await query.message.edit_text(
                 stats_text,
@@ -478,29 +476,69 @@ async def handle_callbacks(client, query: CallbackQuery):
 
 @app.on_message(filters.private & filters.forwarded)
 async def process_forwarded_message(client, message: Message):
-    # Only process documents/videos with a file name
-    media = message.document or message.video
-    if not media:
+    # Only process if the forwarded message is from a channel
+    if not message.forward_from_chat or not message.forward_from_message_id:
+        await message.reply_text("Please forward the last message from a channel with quotes.")
         return
 
-    # Save/copy the file to your DB_CHANNEL
-    sent = await client.copy_message(DB_CHANNEL, message.chat.id, message.id)
-    file_name = media.file_name or "Unknown"
-    caption = message.caption or ""
-    combined_text = f"{file_name} {caption}".lower()
-    normalized_name = normalize_text(file_name)
-    language = extract_language(combined_text)
+    chat_id = message.forward_from_chat.id
+    last_msg_id = message.forward_from_message_id
+    count = 0
+    live_message = await message.reply_text("Scanning files... 0 found")
 
-    # Save only the DB_CHANNEL and the new message id!
-    files_col.insert_one({
-        "file_name": file_name,
-        "normalized_name": normalized_name,
-        "language": language,
-        "chat_id": DB_CHANNEL,
-        "message_id": sent.id
-    })
-    await message.reply("✅ File saved successfully!")
+    # Scan backwards and copy every file to DB_CHANNEL
+    for msg_id in range(last_msg_id, 0, -1):
+        try:
+            msg = await client.get_messages(chat_id, msg_id)
+            if not msg:
+                continue
+            media = msg.document or msg.video
+            if not media:
+                continue
 
+            # Copy to DB_CHANNEL
+            sent = await client.copy_message(DB_CHANNEL, chat_id, msg_id)
+            file_name = media.file_name or "Unknown"
+            caption = msg.caption or ""
+            combined_text = f"{file_name} {caption}".lower()
+            normalized_name = normalize_text(file_name)
+            language = extract_language(combined_text)
+            file_type = "document" if msg.document else "video"
+
+            # Avoid duplicates
+            existing = files_col.find_one({
+                "chat_id": DB_CHANNEL,
+                "message_id": sent.id
+            })
+            if existing:
+                continue
+
+            files_col.insert_one({
+                "file_name": file_name,
+                "normalized_name": normalized_name,
+                "language": language,
+                "file_type": file_type,
+                "chat_id": DB_CHANNEL,
+                "message_id": sent.id
+            })
+            count += 1
+            new_text = f"Scanning files... {count} found"
+            if live_message.text != new_text:
+                try:
+                    await live_message.edit_text(new_text)
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"Error at message {msg_id}: {e}")
+            break
+
+    final_text = f"✅ Done! {count} files added."
+    if live_message.text != final_text:
+        try:
+            await live_message.edit_text(final_text)
+        except Exception:
+            pass
+            
 @app.on_message(filters.group & filters.text)
 async def track_group(client, message: Message):
     groups_col.update_one(
