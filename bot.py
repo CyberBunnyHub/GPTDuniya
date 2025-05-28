@@ -251,27 +251,21 @@ async def handle_callbacks(client, query: CallbackQuery):
             users_count = users_col.count_documents({})
             groups_count = groups_col.count_documents({})
             files_count = files_col.count_documents({})
-            files = list(files_col.find().limit(3)) 
-            file_names = [f"- {doc.get('file_name', 'Unnamed')}" for doc in files]
-            files_text = "\n".join(file_names) if file_names else "No files found."
             
-                stats_text = (
+            stats_text = (
                     f"<b>- - - - - - 📉 Bot Stats - - - - - -</b>\n"
                     f"<b>Total Users:</b> {users_count}\n"
                     f"<b>Total Groups:</b> {groups_count}\n"
                     f"<b>Total Files:</b> {files_count}\n"
-                    f"<b>Files List:</b>\n"
-                    f"{files_text}"
-                )
-                
-                return await query.message.edit_text(
-                    stats_text,
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🔄 Refresh", callback_data="showstats")],
-                        [InlineKeyboardButton("⟲ Back", callback_data="help")]
-                    ]),
-                    parse_mode=ParseMode.HTML
-                )
+            )
+            return await query.message.edit_text(
+                stats_text,
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔄 Refresh", callback_data="showstats")],
+                    [InlineKeyboardButton("⟲ Back", callback_data="help")]
+                ]),
+                parse_mode=ParseMode.HTML
+            )
 
         # Database
         elif data == "database":
