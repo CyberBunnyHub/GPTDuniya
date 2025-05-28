@@ -251,25 +251,30 @@ async def handle_callbacks(client, query: CallbackQuery):
             users_count = users_col.count_documents({})
             groups_count = groups_col.count_documents({})
             files_count = files_col.count_documents({})
-            files = list(files_col.find({}))
+            files = list(files_col.find({}, {"file_name": 1}).limit(50))  # limit to 50 file names
             file_names = [f"- {doc.get('file_name', 'Unnamed')}" for doc in files]
             files_text = "\n".join(file_names) if file_names else "No files found."
-            stats_text = (
-                f"<b>- - - - - - 📉 Bot Stats - - - - - -</b>\n"
-                f"<b>Total Users:</b> {users_count}\n"
-                f"<b>Total Groups:</b> {groups_count}\n"
-                f"<b>Total Files:</b> {files_count}\n"
-                f"<b>Files List:</b>\n"
-                f"{files_text}"
-            )
-            return await query.message.edit_text(
-                stats_text,
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔄 Refresh", callback_data="showstats")],
-                    [InlineKeyboardButton("⟲ Back", callback_data="help")]
-                ]),
-                parse_mode=ParseMode.HTML
-            )
+            
+            if len(file_names) == 50:
+                files_text += "\n...and more."
+                
+                stats_text = (
+                    f"<b>- - - - - - 📉 Bot Stats - - - - - -</b>\n"
+                    f"<b>Total Users:</b> {users_count}\n"
+                    f"<b>Total Groups:</b> {groups_count}\n"
+                    f"<b>Total Files:</b> {files_count}\n"
+                    f"<b>Files List:</b>\n"
+                    f"{files_text}"
+                )
+                
+                return await query.message.edit_text(
+                    stats_text,
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("🔄 Refresh", callback_data="showstats")],
+                        [InlineKeyboardButton("⟲ Back", callback_data="help")]
+                    ]),
+                    parse_mode=ParseMode.HTML
+                )
 
         # Database
         elif data == "database":
