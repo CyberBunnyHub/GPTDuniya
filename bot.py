@@ -20,7 +20,7 @@ from config import (
 
 PREDEFINED_LANGUAGES = ["Kannada", "English", "Hindi", "Tamil", "Telugu", "Malayalam"]
 
-app = Client("AutoFilterBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client("sessions/AutoFilterBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 mongo = MongoClient(MONGO_URI)
 db = mongo["autofilter"]
