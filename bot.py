@@ -117,13 +117,13 @@ async def start_cmd(client, message: Message):
         try:
             doc = files_col.find_one({"_id": ObjectId(args[1])})
             await emoji_msg.delete()
-            
+
             if not doc:
                 return await message.reply("❌ File not found.")
-                
+
             original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
             caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
-            
+
             if original_message.document:
                 await client.send_document(
                     chat_id=message.chat.id,
@@ -132,7 +132,7 @@ async def start_cmd(client, message: Message):
                     parse_mode=ParseMode.HTML
                 )
                 return
-            
+
             elif original_message.video:
                 await client.send_video(
                     chat_id=message.chat.id,
@@ -143,18 +143,18 @@ async def start_cmd(client, message: Message):
                 return
             else:
                 return await message.reply("❌ File not found or unsupported media type.")
-        
+
         except Exception as e:
             await emoji_msg.delete()
             return await message.reply(f"❌ Error retrieving file:\n\n{e}")
-    
+
     bot_username = (await client.get_me()).username
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{bot_username}?startgroup=true")],
         [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
         [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
     ])
-    
+
     await emoji_msg.delete()
     await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
@@ -172,19 +172,17 @@ async def search_and_track(client, message: Message):
             [InlineKeyboardButton("Joined", callback_data="checksub")]
         ])
         await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
-        return  # <-- Exit early if not subscribed
+        return
 
-    # Only runs if subscribed
     user_query = message.text.strip()
     query = normalize_text(user_query)
 
-    # Search all results regardless of language
     results = list(files_col.find({
         "normalized_name": {"$regex": query, "$options": "i"}
     }))
 
     if not results:
-        return  # Stay silent if nothing found (as per your earlier preference)
+        return
 
     markup = generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id)
     await message.reply(
@@ -205,7 +203,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 prefix, page_str, query_text, lang = parts
             else:
                 prefix, page_str, query_text = parts
-                lang = None  # fallback if language not provided
+                lang = None
 
             page = int(page_str)
             normalized_query = normalize_text(query_text)
@@ -277,7 +275,7 @@ async def handle_callbacks(client, query: CallbackQuery):
 
         # Get files for current page, language
         elif data.startswith("getfiles:"):
-            parts = data.split(":", 3)
+            parts = data.split(":")
             query_text = parts[1]
             page_str = parts[2]
             selected_lang = parts[3] if len(parts) > 3 else "All"
@@ -328,7 +326,8 @@ async def handle_callbacks(client, query: CallbackQuery):
                 ]),
                 parse_mode=ParseMode.HTML
             )
-        
+
+        # Show statistics
         elif data == "showstats":
             users = users_col.count_documents({})
             groups = groups_col.count_documents({})
@@ -337,7 +336,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             file_names = [f"- {doc.get('file_name', 'Unnamed')}" for doc in files]
             files_text = "\n".join(file_names) if file_names else "No files found."
             return await query.message.edit_text(
-        f"""<b>- - - - - - 📉 Bot Stats - - - - - -</b>
+                f"""<b>- - - - - - 📉 Bot Stats - - - - - -</b>
 <b>Total Users:</b> {users}
 <b>Total Groups:</b> {groups}
 <b>Total Files:</b> {files_count}
@@ -350,7 +349,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 ]),
                 parse_mode=ParseMode.HTML
             )
-            
+
         # Go back to main menu
         elif data == "back":
             image = random.choice(IMAGE_URLS)
@@ -429,6 +428,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             return await query.answer("Unknown action.", show_alert=True)
 
     except Exception as e:
+        print(f"Callback data: {data}")
         print(f"Error in callback: {e}")
         await query.answer("An error occurred.", show_alert=True)
 
@@ -504,7 +504,7 @@ async def process_forwarded_message(client, message: Message):
 
             media = msg.document or msg.video
             if not media:
-                continue  # skip messages without document/video
+                continue
 
             file_name = media.file_name or "Unknown"
             caption = msg.caption or ""
@@ -515,11 +515,9 @@ async def process_forwarded_message(client, message: Message):
             language = extract_language(combined_text)
             file_type = "document" if msg.document else "video"
 
-            # Skip if file_id is not present
             if not hasattr(media, "file_id") or not media.file_id:
                 continue
 
-            # Check for duplicate (by chat_id and message_id)
             existing = files_col.find_one({
                 "chat_id": chat_id,
                 "message_id": msg.id
