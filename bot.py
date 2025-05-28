@@ -251,13 +251,10 @@ async def handle_callbacks(client, query: CallbackQuery):
             users_count = users_col.count_documents({})
             groups_count = groups_col.count_documents({})
             files_count = files_col.count_documents({})
-            files = list(files_col.find({}, {"file_name": 1}).limit(50))  # limit to 50 file names
+            files = list(files_col.find().limit(3)) 
             file_names = [f"- {doc.get('file_name', 'Unnamed')}" for doc in files]
             files_text = "\n".join(file_names) if file_names else "No files found."
             
-            if len(file_names) == 50:
-                files_text += "\n...and more."
-                
                 stats_text = (
                     f"<b>- - - - - - 📉 Bot Stats - - - - - -</b>\n"
                     f"<b>Total Users:</b> {users_count}\n"
