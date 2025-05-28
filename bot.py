@@ -252,6 +252,39 @@ async def handle_callbacks(client, query: CallbackQuery):
                 parse_mode=ParseMode.HTML
             )
 
+@app.on_callback_query()
+async def handle_callbacks(client, query: CallbackQuery):
+    data = query.data
+    try:
+        if data == "showstats":
+            users_count = users_col.count_documents({})
+            groups_count = groups_col.count_documents({})
+            files_count = files_col.count_documents({})
+            files = list(files_col.find({}))
+            file_names = [f"- {doc.get('file_name', 'Unnamed')}" for doc in files]
+            files_text = "\n".join(file_names) if file_names else "No files found."
+            stats_text = (
+                f"<b>- - - - - - 📉 Bot Stats - - - - - -</b>\n"
+                f"<b>Total Users:</b> {users_count}\n"
+                f"<b>Total Groups:</b> {groups_count}\n"
+                f"<b>Total Files:</b> {files_count}\n"
+                f"<b>Files List:</b>\n"
+                f"{files_text}"
+            )
+            return await query.message.edit_text(
+                stats_text,
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔄 Refresh", callback_data="showstats")],
+                    [InlineKeyboardButton("⟲ Back", callback_data="help")]
+                ]),
+                parse_mode=ParseMode.HTML
+            )
+        # ... other callback handlers ...
+    except Exception as e:
+        print(f"Callback data: {data}")
+        print(f"Error in callback: {e}")
+        await query.answer("An error occurred.", show_alert=True)
+
         # Database
         elif data == "database":
             db_help_text = (
@@ -326,29 +359,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 ]),
                 parse_mode=ParseMode.HTML
             )
-        
-        elif data == "showstats":
-            users = users_col.count_documents({})
-            groups = groups_col.count_documents({})
-            files_count = files_col.count_documents({})
-            files = list(files_col.find({}))
-            file_names = [f"- {doc.get('file_name', 'Unnamed')}" for doc in files]
-            files_text = "\n".join(file_names) if file_names else "No files found."
-            return await query.message.edit_text(
-f"""<b>- - - - - - 📉 Bot Stats - - - - - -</b>
-<b>Total Users:</b> {users}
-<b>Total Groups:</b> {groups}
-<b>Total Files:</b> {files_count}
-<b>Files List:</b>
-{files_text}
-""",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔄 Refresh", callback_data="showstats")],
-                    [InlineKeyboardButton("⟲ Back", callback_data="help")]
-                ]),
-                parse_mode=ParseMode.HTML
-            )
-            
+
         # Go back to main menu
         elif data == "back":
             image = random.choice(IMAGE_URLS)
