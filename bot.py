@@ -6,7 +6,7 @@ from bson import ObjectId
 from pymongo import MongoClient
 from pyrogram import Client, filters
 from pyrogram.enums import ParseMode
-from pyrogram.errors import MessageNotModified, UserNotParticipant, FloodWait
+from pyrogram.errors import MessageNotModified, UserNotParticipant, FloodWait, RPCError
 from pyrogram.types import (
     Message, InlineKeyboardMarkup, InlineKeyboardButton,
     CallbackQuery, InputMediaPhoto
@@ -47,7 +47,7 @@ def extract_language(text):
             return lang.capitalize()
     return "Unknown"
 
-def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All"):
+async def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All", client=None):
     total_pages = (len(results) + per_page - 1) // per_page
     start = page * per_page
     end = start + per_page
@@ -61,9 +61,19 @@ def generate_pagination_buttons(results, bot_username, page, per_page, prefix, q
 
     buttons = []
     for doc in page_data:
-        # Check again to ensure file still exists (optional redundancy)
-        if not files_col.find_one({"_id": doc["_id"]}):
-            continue  # Skip if file is not in the database anymore
+        # Check if file exists in the DB and in the Telegram channel
+        exists_in_db = files_col.find_one({"_id": doc["_id"]})
+        exists_in_channel = False
+        if exists_in_db and client is not None:
+            try:
+                await client.get_messages(doc["chat_id"], doc["message_id"])
+                exists_in_channel = True
+            except RPCError:
+                exists_in_channel = False
+            except Exception:
+                exists_in_channel = False
+        if not (exists_in_db and exists_in_channel):
+            continue  # Skip if file is not in the database or channel anymore
 
         row = [InlineKeyboardButton(
             f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
@@ -116,7 +126,11 @@ async def start_cmd(client, message: Message):
             if not doc:
                 return await message.reply("❌ File not found.")
 
-            original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
+            try:
+                original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
+            except Exception:
+                return await message.reply("❌ File not found or has been deleted.")
+
             caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
 
             if original_message.document:
@@ -153,7 +167,7 @@ async def start_cmd(client, message: Message):
     await emoji_msg.delete()
     await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
-@app.on_message(filters.private & filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)
+@app.on_message(filters.private & filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup"]) & ~filters.bot)
 async def search_and_track(client, message: Message):
     users_col.update_one(
         {"_id": message.from_user.id},
@@ -179,12 +193,24 @@ async def search_and_track(client, message: Message):
     if not results:
         return
 
-    markup = generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id)
+    markup = await generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id, client=client)
     await message.reply(
         f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>",
         reply_markup=markup,
         parse_mode=ParseMode.HTML
     )
+
+@app.on_message(filters.command("cleanup") & filters.user(BOT_OWNER))
+async def cleanup_db(client, message: Message):
+    await message.reply_text("🔍 Scanning for orphaned (deleted in channel) files, please wait...")
+    deleted_count = 0
+    async for doc in files_col.find({}):
+        try:
+            await client.get_messages(doc["chat_id"], doc["message_id"])
+        except Exception:
+            files_col.delete_one({"_id": doc["_id"]})
+            deleted_count += 1
+    await message.reply_text(f"✅ Cleanup complete. Deleted {deleted_count} orphaned file entries.")
 
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
@@ -212,9 +238,9 @@ async def handle_callbacks(client, query: CallbackQuery):
             if not results:
                 return await query.answer("No files found.", show_alert=True)
 
-            markup = generate_pagination_buttons(
+            markup = await generate_pagination_buttons(
                 results, (await client.get_me()).username, page, 5,
-                prefix, query_text, query.from_user.id, lang or "All"
+                prefix, query_text, query.from_user.id, lang or "All", client=client
             )
 
             try:
@@ -251,12 +277,22 @@ async def handle_callbacks(client, query: CallbackQuery):
             users_count = users_col.count_documents({})
             groups_count = groups_col.count_documents({})
             files_count = files_col.count_documents({})
-            
+            files = list(files_col.find({}))
+            file_names = []
+            for doc in files:
+                try:
+                    await client.get_messages(doc["chat_id"], doc["message_id"])
+                    file_names.append(f"- {doc.get('file_name', 'Unnamed')}")
+                except Exception:
+                    continue
+            files_text = "\n".join(file_names) if file_names else "No files found."
             stats_text = (
-                    f"<b>- - - - - - 📉 Bot Stats - - - - - -</b>\n"
-                    f"<b>Total Users:</b> {users_count}\n"
-                    f"<b>Total Groups:</b> {groups_count}\n"
-                    f"<b>Total Files:</b> {files_count}\n"
+                f"<b>- - - - - - 📉 Bot Stats - - - - - -</b>\n"
+                f"<b>Total Users:</b> {users_count}\n"
+                f"<b>Total Groups:</b> {groups_count}\n"
+                f"<b>Total Files:</b> {files_count}\n"
+                f"<b>Files List:</b>\n"
+                f"{files_text}"
             )
             return await query.message.edit_text(
                 stats_text,
@@ -303,12 +339,19 @@ async def handle_callbacks(client, query: CallbackQuery):
             results = list(files_col.find(query_filter))
 
             selected_docs = results[page * per_page: (page + 1) * per_page]
+            filtered_docs = []
+            for doc in selected_docs:
+                try:
+                    await client.get_messages(doc["chat_id"], doc["message_id"])
+                    filtered_docs.append(doc)
+                except Exception:
+                    continue
 
-            if not selected_docs:
+            if not filtered_docs:
                 return await query.answer("No files found on this page.", show_alert=True)
 
             await query.answer("Sending selected files...")
-            for doc in selected_docs:
+            for doc in filtered_docs:
                 try:
                     original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
                     caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
@@ -392,7 +435,16 @@ async def handle_callbacks(client, query: CallbackQuery):
                     "language": selected_lang
                 }))
 
-                if not results:
+                # Only keep files that still exist in the channel
+                filtered_results = []
+                for doc in results:
+                    try:
+                        await client.get_messages(doc["chat_id"], doc["message_id"])
+                        filtered_results.append(doc)
+                    except Exception:
+                        continue
+
+                if not filtered_results:
                     markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
                     return await query.message.edit_text(
                         f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
@@ -400,8 +452,8 @@ async def handle_callbacks(client, query: CallbackQuery):
                         reply_markup=markup
                     )
 
-                markup = generate_pagination_buttons(
-                    results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id, selected_lang
+                markup = await generate_pagination_buttons(
+                    filtered_results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id, selected_lang, client=client
                 )
                 try:
                     await query.message.edit_text(
@@ -423,6 +475,31 @@ async def handle_callbacks(client, query: CallbackQuery):
         print(f"Callback data: {data}")
         print(f"Error in callback: {e}")
         await query.answer("An error occurred.", show_alert=True)
+
+@app.on_message(filters.private & filters.forwarded)
+async def process_forwarded_message(client, message: Message):
+    # Only process documents/videos with a file name
+    media = message.document or message.video
+    if not media:
+        return
+
+    # Save/copy the file to your DB_CHANNEL
+    sent = await client.copy_message(DB_CHANNEL, message.chat.id, message.id)
+    file_name = media.file_name or "Unknown"
+    caption = message.caption or ""
+    combined_text = f"{file_name} {caption}".lower()
+    normalized_name = normalize_text(file_name)
+    language = extract_language(combined_text)
+
+    # Save only the DB_CHANNEL and the new message id!
+    files_col.insert_one({
+        "file_name": file_name,
+        "normalized_name": normalized_name,
+        "language": language,
+        "chat_id": DB_CHANNEL,
+        "message_id": sent.id
+    })
+    await message.reply("✅ File saved successfully!")
 
 @app.on_message(filters.group & filters.text)
 async def track_group(client, message: Message):
@@ -473,76 +550,6 @@ async def save_file(client, message: Message):
         "message_id": message.id
     })
     print(f"Stored file: {file_name} | Language: {language}")
-
-@app.on_message(filters.private & filters.forwarded)
-async def process_forwarded_message(client, message: Message):
-    if not message.forward_from_chat or not message.forward_from_message_id:
-        await message.reply_text("Please forward the last message from a channel with quotes.")
-        return
-
-    chat_id = message.forward_from_chat.id
-    last_msg_id = message.forward_from_message_id
-    count = 0
-    live_message = await message.reply_text("Scanning files... 0 found")
-
-    for msg_id in range(last_msg_id, 0, -1):
-        try:
-            msg = await client.get_messages(chat_id, msg_id)
-            if not msg:
-                continue
-
-            media = msg.document or msg.video
-            if not media:
-                continue
-
-            file_name = media.file_name or "Unknown"
-            caption = msg.caption or ""
-            combined_text = f"{file_name} {caption}".lower()
-            normalized_name = normalize_text(file_name)
-            file_size = media.file_size
-            mime_type = media.mime_type
-            language = extract_language(combined_text)
-            file_type = "document" if msg.document else "video"
-
-            if not hasattr(media, "file_id") or not media.file_id:
-                continue
-
-            existing = files_col.find_one({
-                "chat_id": chat_id,
-                "message_id": msg.id
-            })
-            if existing:
-                continue
-
-            files_col.insert_one({
-                "file_name": file_name,
-                "normalized_name": normalized_name,
-                "language": language,
-                "file_type": file_type,
-                "mime_type": mime_type,
-                "file_size": file_size,
-                "file_id": media.file_id,
-                "chat_id": chat_id,
-                "message_id": msg.id
-            })
-
-            count += 1
-            new_text = f"Scanning files... {count} found"
-            if live_message.text != new_text:
-                try:
-                    await live_message.edit_text(new_text)
-                except MessageNotModified:
-                    pass
-        except Exception as e:
-            print(f"Error at message {msg_id}: {e}")
-            break
-
-    final_text = f"✅ Done! {count} files added."
-    if live_message.text != final_text:
-        try:
-            await live_message.edit_text(final_text)
-        except MessageNotModified:
-            pass
 
 print("starting...")
 app.run()
