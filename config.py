@@ -1,13 +1,9 @@
 # config.py
 
-API_ID = 14853951
-API_HASH = "0a33bc287078d4dace12aaecc8e73545"
 BOT_OWNER = 6887303054
 MONGO_URI = "mongodb+srv://CyberBunny:Bunny2008@cyberbunny.5yyorwj.mongodb.net/?retryWrites=true&w=majority"
 DB_NAME = "CyberBunny"
 COLLECTION_NAME = "CBI"
-BOT_TOKEN = "7845318227:AAGfr0cikK92HY-DhIGMVTD3L0VeaKktUp8"
-DB_CHANNEL = -1002511163521
 
 # UI Elements
 IMAGE_URLS = [
