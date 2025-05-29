@@ -72,9 +72,10 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
                 exists_in_channel = False
             except Exception:
                 exists_in_channel = False
-        if not (exists_in_db and exists_in_channel):
-            continue  # Skip if file is not in the database or channel anymore
-
+                if not (exists_in_db and exists_in_channel):
+                    continue
+                    
+        # Skip if file is not in the database or channel anymore
         row = [InlineKeyboardButton(
             f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
             url=f"https://t.me/{bot_username}?start={doc['_id']}"
@@ -121,11 +122,10 @@ async def start_cmd(client, message: Message):
     if len(args) > 1:
         try:
             doc = files_col.find_one({"_id": ObjectId(args[1])})
-            await emoji_msg.delete()
-
             if not doc:
                 return await message.reply("❌ File not found.")
-
+                await emoji_msg.delete()
+                
             try:
                 original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
             except Exception:
@@ -259,7 +259,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 return await query.message.delete()
             else:
                 return await query.answer("❌ File not found.", show_alert=True)
-
+                
         # Help
         elif data == "help":
             return await query.message.edit_text(
