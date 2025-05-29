@@ -68,12 +68,10 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
             try:
                 await client.get_messages(doc["chat_id"], doc["message_id"])
                 exists_in_channel = True
-            except RPCError:
-                exists_in_channel = False
             except Exception:
                 exists_in_channel = False
         if not (exists_in_db and exists_in_channel):
-            continue
+            continue  # Don't show files that are missing
 
         row = [InlineKeyboardButton(
             f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
@@ -237,11 +235,20 @@ async def handle_callbacks(client, query: CallbackQuery):
 
             results = list(files_col.find(query_filter))
 
-            if not results:
+            # Remove files that are deleted in DB channel
+            filtered_results = []
+            for doc in results:
+                try:
+                    await client.get_messages(doc["chat_id"], doc["message_id"])
+                    filtered_results.append(doc)
+                except Exception:
+                    continue
+
+            if not filtered_results:
                 return await query.answer("No files found.", show_alert=True)
 
             markup = await generate_pagination_buttons(
-                results, (await client.get_me()).username, page, 5,
+                filtered_results, (await client.get_me()).username, page, 5,
                 prefix, query_text, query.from_user.id, lang or "All", client=client
             )
 
@@ -329,6 +336,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 query_filter["language"] = selected_lang.capitalize()
             results = list(files_col.find(query_filter))
 
+            # Filter out files missing from DB channel
             selected_docs = results[page * per_page: (page + 1) * per_page]
             filtered_docs = []
             for doc in selected_docs:
