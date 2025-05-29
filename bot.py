@@ -11,7 +11,9 @@ from pyrogram.types import (
     Message, InlineKeyboardMarkup, InlineKeyboardButton,
     CallbackQuery, InputMediaPhoto
 )
-
+from flask import Flask
+import os
+import threading
 from config import (
     BOT_TOKEN, API_ID, API_HASH, BOT_OWNER, MONGO_URI,
     DB_CHANNEL, IMAGE_URLS, CAPTIONS,
@@ -27,6 +29,20 @@ db = mongo["autofilter"]
 files_col = db["files"]
 users_col = db["users"]
 groups_col = db["groups"]
+
+
+# Flask setup for Render
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    flask_app.run(host="0.0.0.0", port=port)
+
+# ... your Pyrogram handlers and functions ...
 
 def normalize_text(text):
     return re.sub(r"[^\w\s]", " ", text).lower().strip()
@@ -608,12 +624,16 @@ async def save_file(client, message: Message):
     })
     print(f"Stored file: {file_name} | Language: {language}")
 
-async def keep_alive():
+async def heartbeat():
     while True:
-        print("HeartBeat!")  # You can replace this with any "heartbeat" logic
-        await asyncio.sleep(300)  # 300 seconds = 5 minutes
+        print("Heartbeat!")  # Heartbeat print every 5 minutes
+        await asyncio.sleep(300)
 
-# At the bottom of your script, before app.run():
-loop = asyncio.get_event_loop()
-loop.create_task(keep_alive())
-app.run()
+if __name__ == "__main__":
+    # Start Flask web server for Render port binding
+    threading.Thread(target=run_flask).start()
+    # Start heartbeat task
+    loop = asyncio.get_event_loop()
+    loop.create_task(heartbeat())
+    # Start Pyrogram bot
+    app.run()
