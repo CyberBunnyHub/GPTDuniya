@@ -222,12 +222,13 @@ async def cleanup_db(client, message: Message):
     deleted_count = 0
     for doc in files_col.find({}):
         try:
-            await client.get_messages(doc["chat_id"], doc["message_id"])
+            # Always use DB_CHANNEL, ignore stored chat_id
+            await client.get_messages(DB_CHANNEL, doc["message_id"])
         except Exception:
             files_col.delete_one({"_id": doc["_id"]})
             deleted_count += 1
     await message.reply_text(f"✅ Cleanup complete. Deleted {deleted_count} orphaned file entries.")
-
+    
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
