@@ -335,27 +335,36 @@ async def handle_callbacks(client, query: CallbackQuery):
                     filtered_docs.append(doc)
                 except Exception:
                     continue
-
-            if not filtered_docs:
-                return await query.answer("No files found on this page.", show_alert=True)
-
-            await query.answer("Sending selected files...")
-            for doc in filtered_docs:
-                try:
-                    original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
-                    caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
-                    await client.send_document(
-                        chat_id=query.message.chat.id,
-                        document=original_message.document.file_id,
-                        caption=caption,
-                        parse_mode=ParseMode.HTML
-                    )
-                    await asyncio.sleep(0.5)
-                except FloodWait as e:
-                    await asyncio.sleep(e.value)
-                except Exception as e:
-                    print(f"Failed to send file: {e}")
-
+                    
+                    if not filtered_docs:
+                        return await query.answer("No files found on this page.", show_alert=True)
+                        
+                        await query.answer("Sending selected files...")
+                        for doc in filtered_docs:
+                            try:
+                                original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
+                                caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
+                                if original_message.document:
+                                    await client.send_document(
+                                        chat_id=query.message.chat.id,
+                                        document=original_message.document.file_id,
+                                        caption=caption,
+                                        parse_mode=ParseMode.HTML
+                                    )
+                                
+                                elif original_message.video:
+                                    await client.send_video(
+                                        chat_id=query.message.chat.id,
+                                        video=original_message.video.file_id,
+                                        caption=caption,
+                                        parse_mode=ParseMode.HTML
+                                    )
+                                    await asyncio.sleep(0.5)
+                            except FloodWait as e:
+                                await asyncio.sleep(e.value)
+                            except Exception as e:
+                                print(f"Failed to send file: {e}")
+        
         # About
         elif data == "about":
             bot_username = (await client.get_me()).username
