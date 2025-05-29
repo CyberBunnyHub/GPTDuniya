@@ -15,14 +15,14 @@ from flask import Flask
 import os
 import threading
 from config import (
-    BOT_TOKEN, API_ID, API_HASH, BOT_OWNER, MONGO_URI,
+    BOT_TOKEN, SESSION, API_ID, API_HASH, BOT_OWNER, MONGO_URI,
     DB_CHANNEL, IMAGE_URLS, CAPTIONS,
     UPDATE_CHANNEL, SUPPORT_GROUP
 )
 
 PREDEFINED_LANGUAGES = ["Kannada", "English", "Hindi", "Tamil", "Telugu", "Malayalam"]
 
-app = Client("AutoFilterBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client(SESSION, api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 mongo = MongoClient(MONGO_URI)
 db = mongo["autofilter"]
