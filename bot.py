@@ -72,10 +72,9 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
                 exists_in_channel = False
             except Exception:
                 exists_in_channel = False
-                if not (exists_in_db and exists_in_channel):
-                    continue
-                    
-        # Skip if file is not in the database or channel anymore
+        if not (exists_in_db and exists_in_channel):
+            continue
+
         row = [InlineKeyboardButton(
             f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
             url=f"https://t.me/{bot_username}?start={doc['_id']}"
@@ -123,12 +122,12 @@ async def start_cmd(client, message: Message):
         try:
             doc = files_col.find_one({"_id": ObjectId(args[1])})
             if not doc:
-                return await message.reply("❌ File not found.")
                 await emoji_msg.delete()
-                
+                return await message.reply("❌ File not found.")
             try:
                 original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
             except Exception:
+                await emoji_msg.delete()
                 return await message.reply("❌ File not found or has been deleted.")
 
             caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
@@ -140,6 +139,7 @@ async def start_cmd(client, message: Message):
                     caption=caption,
                     parse_mode=ParseMode.HTML
                 )
+                await emoji_msg.delete()
                 return
 
             elif original_message.video:
@@ -149,8 +149,10 @@ async def start_cmd(client, message: Message):
                     caption=caption,
                     parse_mode=ParseMode.HTML
                 )
+                await emoji_msg.delete()
                 return
             else:
+                await emoji_msg.delete()
                 return await message.reply("❌ File not found or unsupported media type.")
 
         except Exception as e:
@@ -259,7 +261,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 return await query.message.delete()
             else:
                 return await query.answer("❌ File not found.", show_alert=True)
-                
+
         # Help
         elif data == "help":
             return await query.message.edit_text(
@@ -335,36 +337,36 @@ async def handle_callbacks(client, query: CallbackQuery):
                     filtered_docs.append(doc)
                 except Exception:
                     continue
-                    
-                    if not filtered_docs:
-                        return await query.answer("No files found on this page.", show_alert=True)
-                        
-                        await query.answer("Sending selected files...")
-                        for doc in filtered_docs:
-                            try:
-                                original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
-                                caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
-                                if original_message.document:
-                                    await client.send_document(
-                                        chat_id=query.message.chat.id,
-                                        document=original_message.document.file_id,
-                                        caption=caption,
-                                        parse_mode=ParseMode.HTML
-                                    )
-                                
-                                elif original_message.video:
-                                    await client.send_video(
-                                        chat_id=query.message.chat.id,
-                                        video=original_message.video.file_id,
-                                        caption=caption,
-                                        parse_mode=ParseMode.HTML
-                                    )
-                                    await asyncio.sleep(0.5)
-                            except FloodWait as e:
-                                await asyncio.sleep(e.value)
-                            except Exception as e:
-                                print(f"Failed to send file: {e}")
-        
+
+            if not filtered_docs:
+                return await query.answer("No files found on this page.", show_alert=True)
+
+            await query.answer("Sending selected files...")
+            for doc in filtered_docs:
+                try:
+                    original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
+                    caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
+                    if original_message.document:
+                        await client.send_document(
+                            chat_id=query.message.chat.id,
+                            document=original_message.document.file_id,
+                            caption=caption,
+                            parse_mode=ParseMode.HTML
+                        )
+                    elif original_message.video:
+                        await client.send_video(
+                            chat_id=query.message.chat.id,
+                            video=original_message.video.file_id,
+                            caption=caption,
+                            parse_mode=ParseMode.HTML
+                        )
+                    await asyncio.sleep(0.5)
+                except FloodWait as e:
+                    await asyncio.sleep(e.value)
+                except Exception as e:
+                    print(f"Failed to send file: {e}")
+            return
+
         # About
         elif data == "about":
             bot_username = (await client.get_me()).username
@@ -543,7 +545,7 @@ async def process_forwarded_message(client, message: Message):
             await live_message.edit_text(final_text)
         except Exception:
             pass
-            
+
 @app.on_message(filters.group & filters.text)
 async def track_group(client, message: Message):
     groups_col.update_one(
