@@ -608,5 +608,12 @@ async def save_file(client, message: Message):
     })
     print(f"Stored file: {file_name} | Language: {language}")
 
-print("starting...")
+async def keep_alive():
+    while True:
+        print("HeartBeat!")  # You can replace this with any "heartbeat" logic
+        await asyncio.sleep(300)  # 300 seconds = 5 minutes
+
+# At the bottom of your script, before app.run():
+loop = asyncio.get_event_loop()
+loop.create_task(keep_alive())
 app.run()
