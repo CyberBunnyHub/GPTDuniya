@@ -514,7 +514,7 @@ async def process_forwarded_message(client, message: Message):
                 "file_type": file_type,
                 "chat_id": DB_CHANNEL,
                 "message_id": sent.id,
-                "file_id": file_id,
+                "file_id": sent.document.file_id if sent.document else sent.video.file_id,
                 "file_size": file_size
             })
             count += 1
