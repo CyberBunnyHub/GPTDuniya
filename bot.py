@@ -15,7 +15,7 @@ from flask import Flask
 import os
 import threading
 from config import (
-    BOT_TOKEN, SESSION, API_ID, API_HASH, BOT_OWNER, MONGO_URI,
+    BOT_TOKEN, API_ID, API_HASH, BOT_OWNER, MONGO_URI,
     DB_CHANNEL, IMAGE_URLS, CAPTIONS,
     UPDATE_CHANNEL, SUPPORT_GROUP
 )
