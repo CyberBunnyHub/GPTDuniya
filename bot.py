@@ -228,6 +228,56 @@ async def cleanup_db(client, message: Message):
             files_col.delete_one({"_id": doc["_id"]})
             deleted_count += 1
     await message.reply_text(f"✅ Cleanup complete. Deleted {deleted_count} orphaned file entries.")
+
+@app.on_message(filters.command("scanall") & filters.user(BOT_OWNER))
+async def scan_all_files(client, message: Message):
+    if not message.reply_to_message or not message.reply_to_message.forward_from_chat:
+        return await message.reply_text("Reply to any message forwarded from the channel you want to scan.")
+
+    source_chat = message.reply_to_message.forward_from_chat.id
+    count = 0
+    live_message = await message.reply_text("Scanning files... 0 found")
+
+    async for msg in client.get_chat_history(source_chat):
+        try:
+            media = msg.document or msg.video
+            if not media:
+                continue
+
+            file_name = media.file_name or "Unknown"
+            file_size = media.file_size
+            if files_col.find_one({"file_name": file_name, "file_size": file_size}):
+                continue
+
+            caption = msg.caption or ""
+            normalized_name = normalize_text(file_name)
+            language = extract_language(f"{file_name} {caption}".lower())
+            file_type = "document" if msg.document else "video"
+
+            sent = await client.copy_message(DB_CHANNEL, source_chat, msg.id)
+
+            files_col.insert_one({
+                "file_name": file_name,
+                "normalized_name": normalized_name,
+                "language": language,
+                "file_type": file_type,
+                "chat_id": DB_CHANNEL,
+                "message_id": sent.id,
+                "file_id": sent.document.file_id if sent.document else sent.video.file_id,
+                "file_size": file_size
+            })
+            count += 1
+            if count % 10 == 0:
+                try:
+                    await live_message.edit_text(f"Scanning files... {count} found")
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"Error scanning message {msg.id}: {e}")
+            continue
+
+    await live_message.edit_text(f"✅ Done! {count} files added.")
+    
     
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
