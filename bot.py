@@ -6,7 +6,7 @@ from bson import ObjectId
 from pymongo import MongoClient
 from pyrogram import Client, filters
 from pyrogram.enums import ParseMode
-from pyrogram.errors import MessageNotModified, UserNotParticipant, FloodWait, RPCError
+from pyrogram.errors import MessageNotModified, UserNotParticipant, FloodWait
 from pyrogram.types import (
     Message, InlineKeyboardMarkup, InlineKeyboardButton,
     CallbackQuery, InputMediaPhoto
@@ -29,7 +29,7 @@ db = mongo["autofilter"]
 files_col = db["files"]
 users_col = db["users"]
 groups_col = db["groups"]
-
+user_channels_col = db["user_channels"]
 
 # Flask setup for Render
 flask_app = Flask(__name__)
@@ -41,8 +41,6 @@ def home():
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
     flask_app.run(host="0.0.0.0", port=port)
-
-# ... your Pyrogram handlers and functions ...
 
 def normalize_text(text):
     return re.sub(r"[^\w\s]", " ", text).lower().strip()
@@ -77,7 +75,6 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 
     buttons = []
     for doc in page_data:
-        # Check if file exists in the DB and in the Telegram channel
         exists_in_db = files_col.find_one({"_id": doc["_id"]})
         exists_in_channel = False
         if exists_in_db and client is not None:
@@ -87,7 +84,7 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
             except Exception:
                 exists_in_channel = False
         if not (exists_in_db and exists_in_channel):
-            continue  # Don't show files that are missing
+            continue
 
         row = [InlineKeyboardButton(
             f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
@@ -222,7 +219,6 @@ async def cleanup_db(client, message: Message):
     deleted_count = 0
     for doc in files_col.find({}):
         try:
-            # Always use DB_CHANNEL, ignore stored chat_id
             await client.get_messages(DB_CHANNEL, doc["message_id"])
         except Exception:
             files_col.delete_one({"_id": doc["_id"]})
@@ -277,8 +273,7 @@ async def scan_all_files(client, message: Message):
             continue
 
     await live_message.edit_text(f"✅ Done! {count} files added.")
-    
-    
+
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
@@ -551,9 +546,32 @@ async def handle_callbacks(client, query: CallbackQuery):
         print(f"Error in callback: {e}")
         await query.answer("An error occurred.", show_alert=True)
 
+async def store_user_channel(channel_id):
+    user_channels_col.update_one(
+        {"_id": channel_id},
+        {"$set": {"_id": channel_id}},
+        upsert=True
+    )
+
+async def check_and_store_user_channel(client, message: Message):
+    if message.forward_from_chat:
+        channel_id = message.forward_from_chat.id
+        await store_user_channel(channel_id)
+        try:
+            member = await client.get_chat_member(channel_id, (await client.get_me()).id)
+            if member.status not in ("administrator", "creator"):
+                print(f"Bot is not an admin in user channel: {channel_id}")
+            else:
+                print(f"Bot is an admin in user channel: {channel_id}")
+        except Exception as e:
+            print(f"Error checking admin status for user channel {channel_id}: {e}")
+
 @app.on_message(filters.private & filters.forwarded)
 async def process_forwarded_message(client, message: Message):
-    # Only process if the forwarded message is from a channel
+    # Call the function to check and store the user channel
+    await check_and_store_user_channel(client, message)
+
+    # Only process if the forwarded message is from a channel and has a message id
     if not message.forward_from_chat or not message.forward_from_message_id:
         await message.reply_text("Please forward the last message from a channel with quotes.")
         return
@@ -574,7 +592,7 @@ async def process_forwarded_message(client, message: Message):
                 continue
 
             file_name = media.file_name or "Unknown"
-            file_size = media.file_size  # in bytes
+            file_size = media.file_size
             file_id = media.file_id
             caption = msg.caption or ""
             combined_text = f"{file_name} {caption}".lower()
@@ -675,16 +693,6 @@ async def save_file(client, message: Message):
     })
     print(f"Stored file: {file_name} | Language: {language}")
 
-async def heartbeat():
-    while True:
-        print("Heartbeat!")  # Heartbeat print every 5 minutes
-        await asyncio.sleep(300)
-
 if __name__ == "__main__":
-    # Start Flask web server for Render port binding
     threading.Thread(target=run_flask).start()
-    # Start heartbeat task
-    loop = asyncio.get_event_loop()
-    loop.create_task(heartbeat())
-    # Start Pyrogram bot
     app.run()
