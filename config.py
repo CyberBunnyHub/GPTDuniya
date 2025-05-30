@@ -1,9 +1,6 @@
-import os
-
-SESSION = os.environ.get('SESSION', 'CyberFilterBot')
-BOT_TOKEN = "7850386310:AAEeCeBvPdkwThjHSOjHecEhWfzI4DQ8JsM"
+BOT_TOKEN = "7845318227:AAFIWjneKzVu_MmAsNDkD3B6NvXzlbMdCgU"
 DB_CHANNEL = -1002511163521
-API_ID = 14853951
+API_ID = "14853951"
 API_HASH = "0a33bc287078d4dace12aaecc8e73545"
 BOT_OWNER = 6887303054
 MONGO_URI = "mongodb+srv://CyberBunny:Bunny2008@cyberbunny.5yyorwj.mongodb.net/?retryWrites=true&w=majority"
