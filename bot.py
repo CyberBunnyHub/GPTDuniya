@@ -183,7 +183,7 @@ async def start_cmd(client, message: Message):
 async def search_and_track(client, message: Message):
     users_col.update_one(
         {"_id": message.from_user.id},
-        {"$set": {"name": message.from_user.first_name}},
+        {"$set": {"name": message.from_user.first_name, "username": message.from_user.username}},
         upsert=True
     )
 
@@ -447,8 +447,6 @@ async def group_broadcast_cmd(client, message: Message):
         f"Success rate: {(success/total)*100:.1f}%"
     )
 
-# ... (other imports and initialization code above)
-
 USERS_PER_PAGE = 10
 CHATS_PER_PAGE = 10
 
@@ -520,76 +518,98 @@ async def chat_list_cmd(client, message: Message):
     )
 
 @app.on_callback_query()
-async def pagination_cb(client, query: CallbackQuery):
-    data = query.data
-    if data.startswith("userlist:"):
-        page = int(data.split(":")[1])
-        skip = page * USERS_PER_PAGE
-        users = list(users_col.find().sort("_id", -1).skip(skip).limit(USERS_PER_PAGE))
-        total = users_col.count_documents({})
-        text = "<b>📊 Bot Users</b>\n\n"
-        for i, user in enumerate(users, start=skip + 1):
-            name = user.get('name', 'Unknown')
-            tguser = (f" (@{user.get('username')})" if user.get('username') else "")
-            text += f"{i}. <code>{user['_id']}</code> - {name}{tguser}\n"
-        text += f"\nTotal Users: {total}"
-        buttons = []
-        nav_row = []
-        if page > 0:
-            nav_row.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"userlist:{page-1}"))
-        nav_row.append(InlineKeyboardButton(f"Page {page+1}/{(total-1)//USERS_PER_PAGE+1}", callback_data="noop"))
-        if skip + USERS_PER_PAGE < total:
-            nav_row.append(InlineKeyboardButton("Next ➡️", callback_data=f"userlist:{page+1}"))
-        if nav_row:
-            buttons.append(nav_row)
-        buttons.append([InlineKeyboardButton("❌ Close", callback_data="close_msg")])
-        await query.message.edit_text(
-            text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=ParseMode.HTML
-        )
-        return await query.answer()
-
-    elif data.startswith("chatlist:"):
-        page = int(data.split(":")[1])
-        skip = page * CHATS_PER_PAGE
-        chats = list(groups_col.find().sort("_id", -1).skip(skip).limit(CHATS_PER_PAGE))
-        total = groups_col.count_documents({})
-        text = "<b>💬 Bot Chats</b>\n\n"
-        for i, chat in enumerate(chats, start=skip + 1):
-            title = chat.get('title', 'Unknown')
-            text += f"{i}. <code>{chat['_id']}</code> - {title}\n"
-        text += f"\nTotal Chats: {total}"
-        buttons = []
-        nav_row = []
-        if page > 0:
-            nav_row.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"chatlist:{page-1}"))
-        nav_row.append(InlineKeyboardButton(f"Page {page+1}/{(total-1)//CHATS_PER_PAGE+1}", callback_data="noop"))
-        if skip + CHATS_PER_PAGE < total:
-            nav_row.append(InlineKeyboardButton("Next ➡️", callback_data=f"chatlist:{page+1}"))
-        if nav_row:
-            buttons.append(nav_row)
-        buttons.append([InlineKeyboardButton("❌ Close", callback_data="close_msg")])
-        await query.message.edit_text(
-            text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=ParseMode.HTML
-        )
-        return await query.answer()
-
-    elif data == "close_msg":
-        await query.message.delete()
-        return await query.answer()
-    # ... rest of your callback handler here ...
-
-# ...rest of your main.py handlers, run logic etc...
-
-@app.on_callback_query()
-async def handle_callbacks(client, query: CallbackQuery):
+async def unified_callback_handler(client, query: CallbackQuery):
     data = query.data
     try:
-        # Place the full callback code block from earlier answer here
-        # (already included in previous answer)
-        # [Callback handler code as above]
-        # ... (callback handler code omitted for brevity, see previous answer) ...
-        # Copy the callback handler code block from the previous answer here.
-        pass
+        # Userlist pagination
+        if data.startswith("userlist:"):
+            page = int(data.split(":")[1])
+            skip = page * USERS_PER_PAGE
+            users = list(users_col.find().sort("_id", -1).skip(skip).limit(USERS_PER_PAGE))
+            total = users_col.count_documents({})
+            text = "<b>📊 Bot Users</b>\n\n"
+            for i, user in enumerate(users, start=skip + 1):
+                name = user.get('name', 'Unknown')
+                tguser = (f" (@{user.get('username')})" if user.get('username') else "")
+                text += f"{i}. <code>{user['_id']}</code> - {name}{tguser}\n"
+            text += f"\nTotal Users: {total}"
+            buttons = []
+            nav_row = []
+            if page > 0:
+                nav_row.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"userlist:{page-1}"))
+            nav_row.append(InlineKeyboardButton(f"Page {page+1}/{(total-1)//USERS_PER_PAGE+1}", callback_data="noop"))
+            if skip + USERS_PER_PAGE < total:
+                nav_row.append(InlineKeyboardButton("Next ➡️", callback_data=f"userlist:{page+1}"))
+            if nav_row:
+                buttons.append(nav_row)
+            buttons.append([InlineKeyboardButton("❌ Close", callback_data="close_msg")])
+            await query.message.edit_text(
+                text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=ParseMode.HTML
+            )
+            return await query.answer()
+
+        # Chatlist pagination
+        elif data.startswith("chatlist:"):
+            page = int(data.split(":")[1])
+            skip = page * CHATS_PER_PAGE
+            chats = list(groups_col.find().sort("_id", -1).skip(skip).limit(CHATS_PER_PAGE))
+            total = groups_col.count_documents({})
+            text = "<b>💬 Bot Chats</b>\n\n"
+            for i, chat in enumerate(chats, start=skip + 1):
+                title = chat.get('title', 'Unknown')
+                text += f"{i}. <code>{chat['_id']}</code> - {title}\n"
+            text += f"\nTotal Chats: {total}"
+            buttons = []
+            nav_row = []
+            if page > 0:
+                nav_row.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"chatlist:{page-1}"))
+            nav_row.append(InlineKeyboardButton(f"Page {page+1}/{(total-1)//CHATS_PER_PAGE+1}", callback_data="noop"))
+            if skip + CHATS_PER_PAGE < total:
+                nav_row.append(InlineKeyboardButton("Next ➡️", callback_data=f"chatlist:{page+1}"))
+            if nav_row:
+                buttons.append(nav_row)
+            buttons.append([InlineKeyboardButton("❌ Close", callback_data="close_msg")])
+            await query.message.edit_text(
+                text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=ParseMode.HTML
+            )
+            return await query.answer()
+
+        # Close message
+        elif data == "close_msg":
+            await query.message.delete()
+            return await query.answer()
+
+        # Check subscription
+        elif data == "checksub":
+            if await check_subscription(client, query.from_user.id):
+                await query.answer("You have joined! Try again.", show_alert=True)
+            else:
+                await query.answer("You need to join the channel!", show_alert=True)
+            return
+
+        # Noop (for page info)
+        elif data == "noop":
+            return await query.answer()
+
+        # Add other callbacks as needed (help, about, deletefile, etc.)
+        # Example for deleting a file
+        elif data.startswith("deletefile:") and query.from_user.id == BOT_OWNER:
+            file_id = data.split(":")[1]
+            doc = files_col.find_one({"_id": ObjectId(file_id)})
+            if not doc:
+                await query.answer("File not found.", show_alert=True)
+                return
+            try:
+                # Delete message from the channel
+                await client.delete_messages(doc["chat_id"], doc["message_id"])
+            except Exception:
+                pass
+            files_col.delete_one({"_id": doc["_id"]})
+            await query.answer("File deleted!", show_alert=True)
+            await query.message.edit_text("File deleted from database and channel.")
+
+        # Add help/about callback handling as you want
+
     except Exception as e:
         print(f"Callback data: {data}")
         print(f"Error in callback: {e}")
