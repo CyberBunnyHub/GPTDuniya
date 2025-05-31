@@ -225,55 +225,6 @@ async def cleanup_db(client, message: Message):
             deleted_count += 1
     await message.reply_text(f"✅ Cleanup complete. Deleted {deleted_count} orphaned file entries.")
 
-@app.on_message(filters.command("scanall") & filters.user(BOT_OWNER))
-async def scan_all_files(client, message: Message):
-    if not message.reply_to_message or not message.reply_to_message.forward_from_chat:
-        return await message.reply_text("Reply to any message forwarded from the channel you want to scan.")
-
-    source_chat = message.reply_to_message.forward_from_chat.id
-    count = 0
-    live_message = await message.reply_text("Scanning files... 0 found")
-
-    async for msg in client.get_chat_history(source_chat):
-        try:
-            media = msg.document or msg.video
-            if not media:
-                continue
-
-            file_name = media.file_name or "Unknown"
-            file_size = media.file_size
-            if files_col.find_one({"file_name": file_name, "file_size": file_size}):
-                continue
-
-            caption = msg.caption or ""
-            normalized_name = normalize_text(file_name)
-            language = extract_language(f"{file_name} {caption}".lower())
-            file_type = "document" if msg.document else "video"
-
-            sent = await client.copy_message(DB_CHANNEL, source_chat, msg.id)
-
-            files_col.insert_one({
-                "file_name": file_name,
-                "normalized_name": normalized_name,
-                "language": language,
-                "file_type": file_type,
-                "chat_id": DB_CHANNEL,
-                "message_id": sent.id,
-                "file_id": sent.document.file_id if sent.document else sent.video.file_id,
-                "file_size": file_size
-            })
-            count += 1
-            if count % 10 == 0:
-                try:
-                    await live_message.edit_text(f"Scanning files... {count} found")
-                except Exception:
-                    pass
-        except Exception as e:
-            print(f"Error scanning message {msg.id}: {e}")
-            continue
-
-    await live_message.edit_text(f"✅ Done! {count} files added.")
-
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
@@ -568,29 +519,29 @@ async def check_and_store_user_channel(client, message: Message):
 
 @app.on_message(filters.private & filters.forwarded)
 async def process_forwarded_message(client, message: Message):
-    # Call the function to check and store the user channel
+    # Check and store the user channel
     await check_and_store_user_channel(client, message)
 
-    # Only process if the forwarded message is from a channel and has a message id
     if not message.forward_from_chat or not message.forward_from_message_id:
-        await message.reply_text("Please forward the last message from a channel with quotes.")
+        await message.reply_text("❌ Please forward the **last message** from a channel **with quotes**.")
         return
 
     chat_id = message.forward_from_chat.id
     last_msg_id = message.forward_from_message_id
     count = 0
-    live_message = await message.reply_text("Scanning files... 0 found")
+    live_message = await message.reply_text("🔍 Scanning files... **0** found")
 
-    # Scan backwards and copy every file to DB_CHANNEL
-    for msg_id in range(last_msg_id, 0, -1):
+    # Start from the last message and go backward
+    current_msg_id = last_msg_id
+
+    while current_msg_id > 0:
         try:
-            msg = await client.get_messages(chat_id, msg_id)
-            if not msg:
-                continue
-            media = msg.document or msg.video
-            if not media:
+            msg = await client.get_messages(chat_id, current_msg_id)
+            if not msg or not (msg.document or msg.video):
+                current_msg_id -= 1
                 continue
 
+            media = msg.document or msg.video
             file_name = media.file_name or "Unknown"
             file_size = media.file_size
             file_id = media.file_id
@@ -600,16 +551,21 @@ async def process_forwarded_message(client, message: Message):
             language = extract_language(combined_text)
             file_type = "document" if msg.document else "video"
 
-            # Check for duplicate by file_name and file_size
+            # Check for duplicates
             existing = files_col.find_one({
                 "file_name": file_name,
                 "file_size": file_size
             })
             if existing:
+                current_msg_id -= 1
                 continue
 
             # Copy to DB_CHANNEL
-            sent = await client.copy_message(DB_CHANNEL, chat_id, msg_id)
+            try:
+                sent = await client.copy_message(DB_CHANNEL, chat_id, current_msg_id)
+            except FloodWait as e:
+                await asyncio.sleep(e.value)
+                continue  # Retry after waiting
 
             files_col.insert_one({
                 "file_name": file_name,
@@ -621,24 +577,21 @@ async def process_forwarded_message(client, message: Message):
                 "file_id": sent.document.file_id if sent.document else sent.video.file_id,
                 "file_size": file_size
             })
+
             count += 1
-            new_text = f"Scanning files... {count} found"
-            if live_message.text != new_text:
-                try:
-                    await live_message.edit_text(new_text)
-                except Exception:
-                    pass
+            if count % 5 == 0:  # Update progress every 5 files
+                await live_message.edit_text(f"📂 Scanning files... **{count}** found")
+            
+            current_msg_id -= 1  # Move to the previous message
+
         except Exception as e:
-            print(f"Error at message {msg_id}: {e}")
-            break
+            print(f"Error at message {current_msg_id}: {e}")
+            current_msg_id -= 1  # Skip problematic messages
+            continue
 
-    final_text = f"✅ Done! {count} files added."
-    if live_message.text != final_text:
-        try:
-            await live_message.edit_text(final_text)
-        except Exception:
-            pass
-
+    # Final update
+    await live_message.edit_text(f"✅ **Done!** {count} files added to the database.")
+    
 @app.on_message(filters.group & filters.text)
 async def track_group(client, message: Message):
     groups_col.update_one(
