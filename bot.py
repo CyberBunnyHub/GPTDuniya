@@ -2,6 +2,7 @@ import asyncio
 import random
 import re
 import base64
+from datetime import datetime
 from bson import ObjectId
 from pymongo import MongoClient
 from pyrogram import Client, filters
@@ -30,6 +31,7 @@ files_col = db["files"]
 users_col = db["users"]
 groups_col = db["groups"]
 user_channels_col = db["user_channels"]
+logs_col = db["logs"]
 
 # Flask setup for Render
 flask_app = Flask(__name__)
@@ -60,6 +62,21 @@ def extract_language(text):
         if lang in text.lower():
             return lang.capitalize()
     return "Unknown"
+
+async def log_event(event_type: str, user_id: int, chat_id: int = None, extra_data: dict = None):
+    """Log an event to the database"""
+    log_data = {
+        "event_type": event_type,
+        "user_id": user_id,
+        "timestamp": datetime.now(),
+    }
+    
+    if chat_id:
+        log_data["chat_id"] = chat_id
+    if extra_data:
+        log_data.update(extra_data)
+    
+    logs_col.insert_one(log_data)
 
 async def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All", client=None):
     total_pages = (len(results) + per_page - 1) // per_page
@@ -114,6 +131,15 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
+    # Check if this is a new user
+    existing_user = users_col.find_one({"_id": message.from_user.id})
+    if not existing_user:
+        await log_event("new_user", message.from_user.id, extra_data={
+            "username": message.from_user.username,
+            "first_name": message.from_user.first_name,
+            "last_name": message.from_user.last_name
+        })
+    
     emoji_msg = await message.reply("🍿")
     image = random.choice(IMAGE_URLS)
     user_mention = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
@@ -180,7 +206,7 @@ async def start_cmd(client, message: Message):
     await emoji_msg.delete()
     await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
-@app.on_message(filters.private & filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup"]) & ~filters.bot)
+@app.on_message(filters.private & filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup", "logs", "clearlogs"]) & ~filters.bot)
 async def search_and_track(client, message: Message):
     users_col.update_one(
         {"_id": message.from_user.id},
@@ -224,6 +250,139 @@ async def cleanup_db(client, message: Message):
             files_col.delete_one({"_id": doc["_id"]})
             deleted_count += 1
     await message.reply_text(f"✅ Cleanup complete. Deleted {deleted_count} orphaned file entries.")
+
+@app.on_message(filters.command("logs") & filters.user(BOT_OWNER))
+async def show_logs(client, message: Message):
+    """Show recent logs"""
+    args = message.text.split()
+    limit = 20 if len(args) < 2 else min(int(args[1]), 100)
+    
+    logs = logs_col.find().sort("timestamp", -1).limit(limit)
+    
+    if not logs:
+        return await message.reply("No logs found.")
+    
+    text = "📜 <b>Recent Logs</b>\n\n"
+    for log in logs:
+        timestamp = log["timestamp"].strftime("%Y-%m-%d %H:%M:%S")
+        text += f"⏰ <b>{timestamp}</b>\n"
+        text += f"🔹 <b>Event:</b> {log['event_type']}\n"
+        
+        if log["event_type"] == "new_user":
+            user_info = f"👤 User: {log.get('first_name', '')} {log.get('last_name', '')}"
+            if log.get("username"):
+                user_info += f" (@{log['username']})"
+            text += f"{user_info}\n"
+            text += f"🆔 ID: <code>{log['user_id']}</code>\n"
+        
+        elif log["event_type"] == "new_group":
+            text += f"👥 Group: {log.get('group_title', 'Unknown')}\n"
+            text += f"🆔 ID: <code>{log['chat_id']}</code>\n"
+            text += f"➕ Added by: <code>{log.get('added_by', 'Unknown')}</code>\n"
+        
+        text += "\n"
+    
+    await message.reply(text, parse_mode=ParseMode.HTML)
+
+@app.on_message(filters.command("clearlogs") & filters.user(BOT_OWNER))
+async def clear_logs(client, message: Message):
+    """Clear all logs"""
+    if not message.text.endswith("--confirm"):
+        return await message.reply(
+            "⚠️ This will delete ALL logs. To confirm, run:\n"
+            "<code>/clearlogs --confirm</code>"
+        )
+    
+    result = logs_col.delete_many({})
+    await message.reply(f"✅ Deleted {result.deleted_count} log entries.")
+
+@app.on_message(filters.command("broadcast") & filters.user(BOT_OWNER))
+async def broadcast_to_users(client, message: Message):
+    if not message.reply_to_message:
+        return await message.reply("❌ Please reply to a message to broadcast")
+    
+    processing_msg = await message.reply("📢 Broadcasting to users...")
+    total = users_col.count_documents({})
+    success = 0
+    failed = 0
+    
+    for user in users_col.find():
+        try:
+            await message.reply_to_message.copy(user["_id"])
+            success += 1
+            await asyncio.sleep(0.2)  # Prevent flooding
+        except Exception as e:
+            failed += 1
+            print(f"Failed to send to user {user['_id']}: {str(e)}")
+    
+    await processing_msg.edit_text(
+        f"✅ Broadcast Complete!\n\n"
+        f"• Total Users: {total}\n"
+        f"• Successfully Sent: {success}\n"
+        f"• Failed: {failed}"
+    )
+
+@app.on_message(filters.command("grp_broadcast") & filters.user(BOT_OWNER))
+async def broadcast_to_groups(client, message: Message):
+    if not message.reply_to_message:
+        return await message.reply("❌ Please reply to a message to broadcast")
+    
+    processing_msg = await message.reply("📢 Broadcasting to groups...")
+    total = groups_col.count_documents({})
+    success = 0
+    failed = 0
+    
+    for group in groups_col.find():
+        try:
+            await message.reply_to_message.copy(group["_id"])
+            success += 1
+            await asyncio.sleep(0.5)  # More delay for groups
+        except Exception as e:
+            failed += 1
+            print(f"Failed to send to group {group['_id']}: {str(e)}")
+    
+    await processing_msg.edit_text(
+        f"✅ Group Broadcast Complete!\n\n"
+        f"• Total Groups: {total}\n"
+        f"• Successfully Sent: {success}\n"
+        f"• Failed: {failed}"
+    )
+
+@app.on_message(filters.command("chats") & filters.user(BOT_OWNER))
+async def list_all_chats(client, message: Message):
+    groups = list(groups_col.find())
+    if not groups:
+        return await message.reply("❌ No groups found in database.")
+    
+    text = "📋 <b>All Groups</b>:\n\n"
+    for group in groups:
+        text += f"• <code>{group['_id']}</code> - {group.get('title', 'No Title')}\n"
+    
+    # Split into multiple messages if too long
+    if len(text) > 4000:
+        for x in range(0, len(text), 4000):
+            await message.reply(text[x:x+4000], parse_mode=ParseMode.HTML)
+            await asyncio.sleep(1)
+    else:
+        await message.reply(text, parse_mode=ParseMode.HTML)
+
+@app.on_message(filters.command("users") & filters.user(BOT_OWNER))
+async def list_all_users(client, message: Message):
+    users = list(users_col.find())
+    if not users:
+        return await message.reply("❌ No users found in database.")
+    
+    text = "👥 <b>All Users</b>:\n\n"
+    for user in users:
+        text += f"• <code>{user['_id']}</code> - {user.get('name', 'No Name')}\n"
+    
+    # Split into multiple messages if too long
+    if len(text) > 4000:
+        for x in range(0, len(text), 4000):
+            await message.reply(text[x:x+4000], parse_mode=ParseMode.HTML)
+            await asyncio.sleep(1)
+    else:
+        await message.reply(text, parse_mode=ParseMode.HTML)
 
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
@@ -284,15 +443,45 @@ async def handle_callbacks(client, query: CallbackQuery):
 
         # Help
         elif data == "help":
+            keyboard = [
+                [InlineKeyboardButton("📊 Stats", callback_data="showstats"),
+                 InlineKeyboardButton("🗂 Database", callback_data="database")]
+            ]
+            
+            # Add Admin button if user is admin
+            if query.from_user.id == BOT_OWNER:
+                keyboard.append([InlineKeyboardButton("👑 Admin", callback_data="admin_panel")])
+                
+            keyboard.append([InlineKeyboardButton("⟲ Back", callback_data="back")])
+            
             return await query.message.edit_text(
                 "Welcome To My Store!\n\n<blockquote>Note: Under Construction...🚧</blockquote>",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode=ParseMode.HTML
+            )
+
+        # Admin Panel
+        elif data == "admin_panel":
+            if query.from_user.id != BOT_OWNER:
+                return await query.answer("You're not authorized!", show_alert=True)
+                
+            await query.message.edit_text(
+                "👑 <b>Admin Panel</b> 👑\n\n"
+                "Available Commands:\n"
+                "/broadcast - Broadcast message to all users\n"
+                "/grp_broadcast - Broadcast to all groups\n"
+                "/chats - List all chats\n"
+                "/users - List all users\n"
+                "/stats - Show bot stats\n"
+                "/logs - View activity logs\n"
+                "/clearlogs - Clear all logs\n"
+                "/cleanup - Cleanup database",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("📊 Stats", callback_data="showstats")],
-                    [InlineKeyboardButton("🗂 Database", callback_data="database")],
-                    [InlineKeyboardButton("⟲ Back", callback_data="back")]
+                    [InlineKeyboardButton("⟲ Back", callback_data="help")]
                 ]),
                 parse_mode=ParseMode.HTML
             )
+            return await query.answer()
 
         # Show statistics
         elif data == "showstats":
@@ -604,6 +793,14 @@ async def track_group(client, message: Message):
 async def welcome_group(client, message: Message):
     for user in message.new_chat_members:
         if user.id == (await client.get_me()).id:
+            # This is the bot being added to a new group
+            existing_group = groups_col.find_one({"_id": message.chat.id})
+            if not existing_group:
+                await log_event("new_group", message.from_user.id, message.chat.id, {
+                    "group_title": message.chat.title,
+                    "added_by": message.from_user.id
+                })
+            
             group_title = message.chat.title
             group_link = f"https://t.me/c/{str(message.chat.id)[4:]}" if str(message.chat.id).startswith("-100") else "https://t.me/"
             caption = (
