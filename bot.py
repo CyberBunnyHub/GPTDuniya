@@ -484,6 +484,49 @@ async def user_list_cmd(client, message: Message):
         text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=ParseMode.HTML
     )
 
+@app.on_message(filters.group & filters.text & ~filters.bot)
+async def group_search_and_track(client, message: Message):
+    # Track users
+    users_col.update_one(
+        {"_id": message.from_user.id},
+        {"$set": {"name": message.from_user.first_name, "username": message.from_user.username}},
+        upsert=True
+    )
+    # Track group
+    groups_col.update_one(
+        {"_id": message.chat.id},
+        {"$set": {"title": message.chat.title}},
+        upsert=True
+    )
+
+    # Enforce channel subscription for group users if you want (optional)
+    if not await check_subscription(client, message.from_user.id):
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
+            [InlineKeyboardButton("Joined", callback_data="checksub")]
+        ])
+        await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
+        return
+
+    user_query = message.text.strip()
+    query = normalize_text(user_query)
+
+    results = list(files_col.find({
+        "normalized_name": {"$regex": query, "$options": "i"}
+    }))
+
+    if not results:
+        return
+
+    markup = await generate_pagination_buttons(
+        results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id, client=client
+    )
+    await message.reply(
+        f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>",
+        reply_markup=markup,
+        parse_mode=ParseMode.HTML
+    )
+
 @app.on_message(filters.command("chat") & filters.user(BOT_OWNER))
 async def chat_list_cmd(client, message: Message):
     args = message.text.split()
@@ -608,28 +651,68 @@ async def unified_callback_handler(client, query: CallbackQuery):
             await query.answer("File deleted!", show_alert=True)
             await query.message.edit_text("File deleted from database and channel.")
 
-        # Add help/about callback handling as you want
+    # ... (rest of your code above remains unchanged)
+
+@app.on_callback_query()
+async def unified_callback_handler(client, query: CallbackQuery):
+    data = query.data
+    try:
+        # ... (existing callback code)
+
+        # HELP callback
+        elif data == "help":
+            help_text = (
+                "<b>🤖 How to use this bot:</b>\n\n"
+                "• Send me a movie or file name and I will search for it!\n"
+                "• Use the buttons to navigate results.\n"
+                "• Add me to your group to enable group search.\n"
+                "• Use /start to see the main menu.\n"
+                "\n<b>Admin Commands:</b>\n"
+                "/broadcast - Send message to all users\n"
+                "/grp_broadcast - Send message to all groups\n"
+                "/user - List users\n"
+                "/chat - List groups\n"
+                "/cleanup - Remove deleted files from DB\n"
+                "\nFor more help, join our <a href='{support}'>Support Group</a>.".format(support=SUPPORT_GROUP)
+            )
+            buttons = [
+                [InlineKeyboardButton("Back", callback_data="about")],
+                [InlineKeyboardButton("❌ Close", callback_data="close_msg")]
+            ]
+            await query.message.edit_text(help_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=ParseMode.HTML)
+            return await query.answer()
+
+        # ABOUT callback
+        elif data == "about":
+            about_text = (
+                "<b>About This Bot</b>\n\n"
+                "• <b>Name:</b> CyberBunny File Searcher\n"
+                "• <b>Developer:</b> <a href='https://t.me/CyberBunnyDev'>CyberBunnyDev</a>\n"
+                "• <b>Features:</b> Auto file indexing, Fast search, Language filter, Group support, Admin tools, and more.\n"
+                "• <b>Source:</b> <a href='https://github.com/CyberBunnyHub/YourRepo'>GitHub</a>\n"
+                "\n<b>Support:</b> <a href='{support}'>{support}</a>\n"
+                "<b>Updates:</b> <a href='{update}'>{update}</a>"
+            ).format(support=SUPPORT_GROUP, update=UPDATE_CHANNEL)
+            buttons = [
+                [InlineKeyboardButton("Help", callback_data="help")],
+                [InlineKeyboardButton("❌ Close", callback_data="close_msg")]
+            ]
+            await query.message.edit_text(about_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+            return await query.answer()
+
+        # ... (rest of your callback code)
 
     except Exception as e:
         print(f"Callback data: {data}")
         print(f"Error in callback: {e}")
         await query.answer("An error occurred.", show_alert=True)
 
-async def periodic_cleanup():
-    while True:
-        try:
-            print("Running periodic cleanup...")
-            deleted_count = 0
-            for doc in files_col.find({}):
-                try:
-                    await app.get_messages(doc["chat_id"], doc["message_id"])
-                except Exception:
-                    files_col.delete_one({"_id": doc["_id"]})
-                    deleted_count += 1
-            print(f"Cleanup complete. Deleted {deleted_count} orphaned files.")
-        except Exception as e:
-            print(f"Error during cleanup: {e}")
-        await asyncio.sleep(3600)
+        # Add help/about callback handling as you want
+
+    except Exception as e:
+        print(f"Callback data: {data}")
+        print(f"Error in callback: {e}")
+        await query.answer("An error occurred.", show_alert=True)
 
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
