@@ -175,7 +175,7 @@ async def start_cmd(client, message: Message):
     if message.chat.type == "private" and not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Joined", callback_data="checksub"))
+            [InlineKeyboardButton("Joined", callback_data="checksub")]
         ])
         await emoji_msg.delete()
         return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
@@ -252,7 +252,7 @@ async def search_and_track(client, message: Message):
     if message.chat.type == "private" and not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Joined", callback_data="checksub"))
+            [InlineKeyboardButton("Joined", callback_data="checksub")]
         ])
         await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
         return
@@ -352,7 +352,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         elif data == "help":
             keyboard = [
                 [InlineKeyboardButton("📊 Stats", callback_data="showstats"),
-                 InlineKeyboardButton("🗂 Database", callback_data="database"))
+                 InlineKeyboardButton("🗂 Database", callback_data="database")]
             ]
             
             if query.from_user.id == BOT_OWNER:
@@ -380,7 +380,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 "/stats - Show bot stats\n"
                 "/cleanup - Cleanup database",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("⟲ Back", callback_data="help"))
+                    [InlineKeyboardButton("⟲ Back", callback_data="help")]
                 ]),
                 parse_mode=ParseMode.HTML
             )
@@ -400,7 +400,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 stats_text,
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("🔄 Refresh", callback_data="showstats")],
-                    [InlineKeyboardButton("⟲ Back", callback_data="help"))
+                    [InlineKeyboardButton("⟲ Back", callback_data="help")]
                 ]),
                 parse_mode=ParseMode.HTML
             )
@@ -472,7 +472,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 about_text,
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
-                     InlineKeyboardButton("⟲ Back", callback_data="back"))
+                     InlineKeyboardButton("⟲ Back", callback_data="back")]
                 ]),
                 parse_mode=ParseMode.HTML
             )
