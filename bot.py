@@ -69,6 +69,30 @@ async def is_admin(client, chat_id, user_id):
     except Exception:
         return False
 
+async def verify_file_exists(client, doc):
+    try:
+        await client.get_messages(doc["chat_id"], doc["message_id"])
+        return True
+    except Exception:
+        return False
+
+async def send_files_to_user(client, chat_id, docs):
+    for doc in docs:
+        try:
+            msg = await client.get_messages(doc["chat_id"], doc["message_id"])
+            caption = f"<code>{msg.caption or doc.get('file_name', 'No Caption')}</code>"
+            
+            if msg.document:
+                await client.send_document(chat_id, msg.document.file_id, caption=caption, parse_mode=ParseMode.HTML)
+            elif msg.video:
+                await client.send_video(chat_id, msg.video.file_id, caption=caption, parse_mode=ParseMode.HTML)
+            
+            await asyncio.sleep(0.5)
+        except FloodWait as e:
+            await asyncio.sleep(e.value)
+        except Exception:
+            continue
+
 async def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All", client=None):
     total_pages = (len(results) + per_page - 1) // per_page
     start = page * per_page
@@ -151,7 +175,7 @@ async def start_cmd(client, message: Message):
     if message.chat.type == "private" and not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Joined", callback_data="checksub")]
+            [InlineKeyboardButton("Joined", callback_data="checksub"))
         ])
         await emoji_msg.delete()
         return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
@@ -228,7 +252,7 @@ async def search_and_track(client, message: Message):
     if message.chat.type == "private" and not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Joined", callback_data="checksub")]
+            [InlineKeyboardButton("Joined", callback_data="checksub"))
         ])
         await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
         return
@@ -328,7 +352,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         elif data == "help":
             keyboard = [
                 [InlineKeyboardButton("📊 Stats", callback_data="showstats"),
-                 InlineKeyboardButton("🗂 Database", callback_data="database")]
+                 InlineKeyboardButton("🗂 Database", callback_data="database"))
             ]
             
             if query.from_user.id == BOT_OWNER:
@@ -356,7 +380,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 "/stats - Show bot stats\n"
                 "/cleanup - Cleanup database",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("⟲ Back", callback_data="help")]
+                    [InlineKeyboardButton("⟲ Back", callback_data="help"))
                 ]),
                 parse_mode=ParseMode.HTML
             )
@@ -376,7 +400,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 stats_text,
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("🔄 Refresh", callback_data="showstats")],
-                    [InlineKeyboardButton("⟲ Back", callback_data="help")]
+                    [InlineKeyboardButton("⟲ Back", callback_data="help"))
                 ]),
                 parse_mode=ParseMode.HTML
             )
@@ -415,51 +439,26 @@ async def handle_callbacks(client, query: CallbackQuery):
             if not docs:
                 return await query.answer("No files found.", show_alert=True)
                 
-                await query.answer("Sending files...")
-                if query.message.chat.type != "private":
-                    try:
-                        await client.send_message(query.from_user.id, f"📁 Files for '{query_text}':")
-                        await send_files_to_user(client, query.from_user.id, docs)
-                        await query.message.reply(
-                            f"📬 Check your PM {query.from_user.mention}!",
-                            reply_to_message_id=query.message.id
-                        )
-                    
-                    except Exception:
-                        await query.message.reply(
-                            "⚠️ Please start a chat with me first!",
-                            reply_markup=InlineKeyboardMarkup([[
-                                InlineKeyboardButton("Start Chat", url=f"https://t.me/{(await client.get_me()).username}?start=start")
-                            ]]),
-                            reply_to_message_id=query.message.id
-                        )
-                    else:
-                        await send_files_to_user(client, query.message.chat.id, docs)
-                        
-                        async def verify_file_exists(client, doc):
-                            try:
-                                await client.get_messages(doc["chat_id"], doc["message_id"])
-                                return True
-                            except Exception:
-                                return False
-                                
-                                async def send_files_to_user(client, chat_id, docs):
-                                    for doc in docs:
-                                        try:
-                                            msg = await client.get_messages(doc["chat_id"], doc["message_id"])
-                                            caption = f"<code>{msg.caption or doc.get('file_name', 'No Caption')}</code>"
-                                            
-                                            if msg.document:
-                                                await client.send_document(chat_id, msg.document.file_id, caption=caption, parse_mode=ParseMode.HTML)
-                                            elif msg.video:
-                                                await client.send_video(chat_id, msg.video.file_id, caption=caption, parse_mode=ParseMode.HTML)
-                                                
-                                                await asyncio.sleep(0.5)
-                                        except FloodWait as e:
-                                            await asyncio.sleep(e.value)
-                                        except Exception:
-                                            continue
-            
+            await query.answer("Sending files...")
+            if query.message.chat.type != "private":
+                try:
+                    await client.send_message(query.from_user.id, f"📁 Files for '{query_text}':")
+                    await send_files_to_user(client, query.from_user.id, docs)
+                    await query.message.reply(
+                        f"📬 Check your PM {query.from_user.mention}!",
+                        reply_to_message_id=query.message.id
+                    )
+                except Exception:
+                    await query.message.reply(
+                        "⚠️ Please start a chat with me first!",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("Start Chat", url=f"https://t.me/{(await client.get_me()).username}?start=start")
+                        ]]),
+                        reply_to_message_id=query.message.id
+                    )
+            else:
+                await send_files_to_user(client, query.message.chat.id, docs)
+
         elif data == "about":
             bot_username = (await client.get_me()).username
             about_text = f"""- - - - - - 🍿About Me - - - - - -
@@ -473,7 +472,7 @@ async def handle_callbacks(client, query: CallbackQuery):
                 about_text,
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
-                     InlineKeyboardButton("⟲ Back", callback_data="back")]
+                     InlineKeyboardButton("⟲ Back", callback_data="back"))
                 ]),
                 parse_mode=ParseMode.HTML
             )
