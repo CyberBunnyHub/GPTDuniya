@@ -349,41 +349,114 @@ async def broadcast_to_groups(client, message: Message):
     )
 
 @app.on_message(filters.command("chats") & filters.user(BOT_OWNER))
-async def list_all_chats(client, message: Message):
-    groups = list(groups_col.find())
-    if not groups:
-        return await message.reply("❌ No groups found in database.")
+@app.on_message(filters.command("broadcast") & filters.user(BOT_OWNER))
+async def broadcast_to_users(client, message: Message):
+    if not message.reply_to_message:
+        return await message.reply("❌ Please reply to a message to broadcast")
     
-    text = "📋 <b>All Groups</b>:\n\n"
+    processing_msg = await message.reply("📢 Broadcasting to users... (This may take a while)")
+    users = list(users_col.find({}))  # Convert cursor to list to avoid timeout issues
+    total = len(users)
+    success = 0
+    failed = 0
+    
+    for user in users:
+        try:
+            await message.reply_to_message.copy(user["_id"])
+            success += 1
+            if success % 10 == 0:  # Update progress every 10 sends
+                await processing_msg.edit_text(
+                    f"📢 Broadcasting to users...\n"
+                    f"• Progress: {success}/{total}\n"
+                    f"• Success: {success}\n"
+                    f"• Failed: {failed}"
+                )
+            await asyncio.sleep(0.5)  # Rate limiting
+        except Exception as e:
+            failed += 1
+            print(f"Failed to send to user {user['_id']}: {str(e)}")
+    
+    await processing_msg.edit_text(
+        f"✅ Broadcast Complete!\n\n"
+        f"• Total Users: {total}\n"
+        f"• Successfully Sent: {success}\n"
+        f"• Failed: {failed}"
+    )
+
+@app.on_message(filters.command("grp_broadcast") & filters.user(BOT_OWNER))
+async def broadcast_to_groups(client, message: Message):
+    if not message.reply_to_message:
+        return await message.reply("❌ Please reply to a message to broadcast")
+    
+    processing_msg = await message.reply("📢 Broadcasting to groups... (This may take a while)")
+    groups = list(groups_col.find({}))  # Convert cursor to list
+    total = len(groups)
+    success = 0
+    failed = 0
+    
     for group in groups:
-        text += f"• <code>{group['_id']}</code> - {group.get('title', 'No Title')}\n"
+        try:
+            await message.reply_to_message.copy(group["_id"])
+            success += 1
+            if success % 5 == 0:  # Update progress every 5 sends
+                await processing_msg.edit_text(
+                    f"📢 Broadcasting to groups...\n"
+                    f"• Progress: {success}/{total}\n"
+                    f"• Success: {success}\n"
+                    f"• Failed: {failed}"
+                )
+            await asyncio.sleep(1)  # More delay for groups
+        except Exception as e:
+            failed += 1
+            print(f"Failed to send to group {group['_id']}: {str(e)}")
     
-    # Split into multiple messages if too long
-    if len(text) > 4000:
-        for x in range(0, len(text), 4000):
-            await message.reply(text[x:x+4000], parse_mode=ParseMode.HTML)
-            await asyncio.sleep(1)
-    else:
-        await message.reply(text, parse_mode=ParseMode.HTML)
+    await processing_msg.edit_text(
+        f"✅ Group Broadcast Complete!\n\n"
+        f"• Total Groups: {total}\n"
+        f"• Successfully Sent: {success}\n"
+        f"• Failed: {failed}"
+    )
 
 @app.on_message(filters.command("users") & filters.user(BOT_OWNER))
 async def list_all_users(client, message: Message):
-    users = list(users_col.find())
-    if not users:
-        return await message.reply("❌ No users found in database.")
-    
-    text = "👥 <b>All Users</b>:\n\n"
-    for user in users:
-        text += f"• <code>{user['_id']}</code> - {user.get('name', 'No Name')}\n"
-    
-    # Split into multiple messages if too long
-    if len(text) > 4000:
-        for x in range(0, len(text), 4000):
-            await message.reply(text[x:x+4000], parse_mode=ParseMode.HTML)
-            await asyncio.sleep(1)
-    else:
-        await message.reply(text, parse_mode=ParseMode.HTML)
+    try:
+        users = list(users_col.find({}, {"_id": 1, "name": 1}))
+        if not users:
+            return await message.reply("❌ No users found in database.")
+        
+        text = "👥 <b>All Users</b>:\n\n"
+        for user in users:
+            text += f"• <code>{user['_id']}</code> - {user.get('name', 'No Name')}\n"
+            if len(text) > 3000:  # Send partial results to avoid timeout
+                await message.reply(text, parse_mode=ParseMode.HTML)
+                text = ""
+                await asyncio.sleep(1)
+        
+        if text:  # Send remaining users
+            await message.reply(text, parse_mode=ParseMode.HTML)
+    except Exception as e:
+        await message.reply(f"❌ Error fetching users: {str(e)}")
 
+@app.on_message(filters.command("chats") & filters.user(BOT_OWNER))
+async def list_all_chats(client, message: Message):
+    try:
+        groups = list(groups_col.find({}, {"_id": 1, "title": 1}))
+        if not groups:
+            return await message.reply("❌ No groups found in database.")
+        
+        text = "📋 <b>All Groups</b>:\n\n"
+        for group in groups:
+            text += f"• <code>{group['_id']}</code> - {group.get('title', 'No Title')}\n"
+            if len(text) > 3000:  # Send partial results to avoid timeout
+                await message.reply(text, parse_mode=ParseMode.HTML)
+                text = ""
+                await asyncio.sleep(1)
+        
+        if text:  # Send remaining groups
+            await message.reply(text, parse_mode=ParseMode.HTML)
+    except Exception as e:
+        await message.reply(f"❌ Error fetching groups: {str(e)}")
+        
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
