@@ -401,90 +401,65 @@ async def handle_callbacks(client, query: CallbackQuery):
                 return await query.answer("Please join the updates channel to use this bot.", show_alert=True)
 
         elif data.startswith("getfiles:"):
-            parts = data.split(":")
-            query_text = parts[1]
-            page_str = parts[2]
-            selected_lang = parts[3] if len(parts) > 3 else "All"
-            page = int(page_str)
-            per_page = 5
-
-            query_filter = {"normalized_name": {"$regex": normalize_text(query_text), "$options": "i"}}
-            if selected_lang and selected_lang != "All":
-                query_filter["language"] = selected_lang.capitalize()
-            results = list(files_col.find(query_filter))
-
-            selected_docs = results[page * per_page: (page + 1) * per_page]
-            filtered_docs = []
-            for doc in selected_docs:
-                try:
-                    await client.get_messages(doc["chat_id"], doc["message_id"])
-                    filtered_docs.append(doc)
-                except Exception:
-                    continue
-
-            if not filtered_docs:
-                return await query.answer("No files found on this page.", show_alert=True)
-
-            await query.answer("Sending files to your PM...")
+            _, query_text, page_str, selected_lang = data.split(":", 3) if len(data.split(":")) > 3 else (*data.split(":"), "All")
+            query_filter = {
+                "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
+                **({"language": selected_lang.capitalize()} if selected_lang != "All" else {})
+            }
             
-            # Check if we're in a group
-            if query.message.chat.type != "private":
-                try:
-                    # Send a message to the user's PM first
-                    await client.send_message(
-                        query.from_user.id,
-                        f"Here are the files you requested from group '{query.message.chat.title}':"
-                    )
-                except Exception as e:
-                    # If bot can't message user, provide a link to start chat
-                    await query.message.reply(
-                        "Please start a chat with me first to receive the files.",
-                        reply_markup=InlineKeyboardMarkup([[
-                            InlineKeyboardButton(
-                                "Start Private Chat",
-                                url=f"https://t.me/{(await client.get_me()).username}?start=start"
-                            )
-                        ]])
-                    )
-                    return
-
-            # Send files to user's PM
-            for doc in filtered_docs:
-                try:
-                    original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
-                    caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
-                    
-                    # Always send to PM, even if in private chat
-                    target_chat = query.from_user.id
-                    
-                    if original_message.document:
-                        await client.send_document(
-                            chat_id=target_chat,
-                            document=original_message.document.file_id,
-                            caption=caption,
-                            parse_mode=ParseMode.HTML
+            docs = [
+                doc for doc in files_col.find(query_filter)[int(page_str)*5 : (int(page_str)+1)*5]
+                if await verify_file_exists(client, doc)
+            ]
+            
+            if not docs:
+                return await query.answer("No files found.", show_alert=True)
+                
+                await query.answer("Sending files...")
+                if query.message.chat.type != "private":
+                    try:
+                        await client.send_message(query.from_user.id, f"📁 Files for '{query_text}':")
+                        await send_files_to_user(client, query.from_user.id, docs)
+                        await query.message.reply(
+                            f"📬 Check your PM {query.from_user.mention}!",
+                            reply_to_message_id=query.message.id
                         )
-                    elif original_message.video:
-                        await client.send_video(
-                            chat_id=target_chat,
-                            video=original_message.video.file_id,
-                            caption=caption,
-                            parse_mode=ParseMode.HTML
-                        )
-                    await asyncio.sleep(0.5)
-                except FloodWait as e:
-                    await asyncio.sleep(e.value)
-                except Exception as e:
-                    print(f"Failed to send file: {e}")
                     
-            # Notify in group if needed
-            if query.message.chat.type != "private":
-                await query.message.reply(
-                    f"I've sent the files to {query.from_user.mention}'s private messages.",
-                    reply_to_message_id=query.message.id
-                )
-            return
-
+                    except Exception:
+                        await query.message.reply(
+                            "⚠️ Please start a chat with me first!",
+                            reply_markup=InlineKeyboardMarkup([[
+                                InlineKeyboardButton("Start Chat", url=f"https://t.me/{(await client.get_me()).username}?start=start")
+                            ]]),
+                            reply_to_message_id=query.message.id
+                        )
+                    else:
+                        await send_files_to_user(client, query.message.chat.id, docs)
+                        
+                        async def verify_file_exists(client, doc):
+                            try:
+                                await client.get_messages(doc["chat_id"], doc["message_id"])
+                                return True
+                            except Exception:
+                                return False
+                                
+                                async def send_files_to_user(client, chat_id, docs):
+                                    for doc in docs:
+                                        try:
+                                            msg = await client.get_messages(doc["chat_id"], doc["message_id"])
+                                            caption = f"<code>{msg.caption or doc.get('file_name', 'No Caption')}</code>"
+                                            
+                                            if msg.document:
+                                                await client.send_document(chat_id, msg.document.file_id, caption=caption, parse_mode=ParseMode.HTML)
+                                            elif msg.video:
+                                                await client.send_video(chat_id, msg.video.file_id, caption=caption, parse_mode=ParseMode.HTML)
+                                                
+                                                await asyncio.sleep(0.5)
+                                        except FloodWait as e:
+                                            await asyncio.sleep(e.value)
+                                        except Exception:
+                                            continue
+            
         elif data == "about":
             bot_username = (await client.get_me()).username
             about_text = f"""- - - - - - 🍿About Me - - - - - -
