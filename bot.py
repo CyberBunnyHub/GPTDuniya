@@ -666,13 +666,15 @@ async def search_in_group(client, message: Message):
     if not results:
         return
 
-    markup = await generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id, client=client)
+    markup = await generate_pagination_buttons(
+        results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id, client=client
+    )
     await message.reply(
         f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>",
         reply_markup=markup,
         parse_mode=ParseMode.HTML
     )
-
+    
 @app.on_message(filters.new_chat_members)
 async def welcome_group(client, message: Message):
     for user in message.new_chat_members:
