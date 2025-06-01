@@ -6,7 +6,7 @@ from datetime import datetime
 from bson import ObjectId
 from pymongo import MongoClient
 from pyrogram import Client, filters
-from pyrogram.enum import ParseMode
+from pyrogram.enums import ParseMode
 from pyrogram.errors import MessageNotModified, UserNotParticipant, FloodWait
 from pyrogram.types import (
     Message, InlineKeyboardMarkup, InlineKeyboardButton,
