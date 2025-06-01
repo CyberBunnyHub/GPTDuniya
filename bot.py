@@ -311,6 +311,64 @@ async def group_broadcast(client, message: Message):
 
     await status_msg.edit_text(f"Broadcast finished!\n\nSuccess: {success}\nFailed: {failed}\nTotal: {total}")
 
+@app.on_message(filters.command("users") & filters.private)
+async def list_users(client, message: Message):
+    if message.from_user.id != BOT_OWNER:
+        return await message.reply("You are not authorized to use this command.")
+
+    users = list(users_col.find({}))
+    if not users:
+        return await message.reply("No users found.")
+
+    lines = []
+    for user in users:
+        name = user.get("first_name", "User")
+        user_id = user["_id"]
+        link = f'<a href="tg://user?id={user_id}">{name}</a>'
+        lines.append(link)
+
+    # Telegram message limit is 4096 chars, so send in multiple messages if too long
+    chunk = ""
+    for line in lines:
+        if len(chunk) + len(line) + 1 > 4000:
+            await message.reply(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+            chunk = ""
+        chunk += line + "\n"
+    if chunk:
+        await message.reply(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+
+@app.on_message(filters.command("chats") & filters.private)
+async def list_groups(client, message: Message):
+    if message.from_user.id != BOT_OWNER:
+        return await message.reply("You are not authorized to use this command.")
+
+    groups = list(groups_col.find({}))
+    if not groups:
+        return await message.reply("No groups found.")
+
+    lines = []
+    for group in groups:
+        title = group.get("title", "Group")
+        chat_id = group["_id"]
+        username = group.get("username")
+        if username:
+            link = f'<a href="https://t.me/{username}">{title}</a>'
+        elif str(chat_id).startswith("-100"):
+            # supergroup, can use internal link
+            link = f'<a href="https://t.me/c/{str(chat_id)[4:]}">{title}</a>'
+        else:
+            link = title
+        lines.append(link)
+
+    chunk = ""
+    for line in lines:
+        if len(chunk) + len(line) + 1 > 4000:
+            await message.reply(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+            chunk = ""
+        chunk += line + "\n"
+    if chunk:
+        await message.reply(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+
 @app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup", "logs", "clearlogs"]) & ~filters.bot)
 async def search_and_track(client, message: Message):
     if message.chat.type == "private":
