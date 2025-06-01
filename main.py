@@ -129,7 +129,7 @@ async def callback_query_handler(client: Client, query: CallbackQuery):
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔙 Back", callback_data="back")]
             ]),
-            parse_mode="html",
+            parse_mode="HTML",
             disable_web_page_preview=True
         )
 
@@ -146,7 +146,7 @@ async def callback_query_handler(client: Client, query: CallbackQuery):
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔙 Back", callback_data="help")]
             ]),
-            parse_mode="html"
+            parse_mode="HTML"
         )
 
     elif data == "database":
@@ -161,21 +161,21 @@ async def callback_query_handler(client: Client, query: CallbackQuery):
         await query.message.edit_text(
             "<b>Admin Panel</b>\nChoose an action:",
             reply_markup=admin_keyboard(),
-            parse_mode="html"
+            parse_mode="HTML"
         )
 
     elif data == "cb_broadcast":
         await query.message.edit_text(
             "To broadcast a message to all users, use /broadcast <message> in private chat.",
             reply_markup=admin_keyboard(),
-            parse_mode="html"
+            parse_mode="HTML"
         )
 
     elif data == "cb_grp_broadcast":
         await query.message.edit_text(
             "To broadcast a message to all groups, use /grp_broadcast <message> in private chat.",
             reply_markup=admin_keyboard(),
-            parse_mode="html"
+            parse_mode="HTML"
         )
 
     elif data == "cb_users":
@@ -183,7 +183,7 @@ async def callback_query_handler(client: Client, query: CallbackQuery):
         await query.message.edit_text(
             f"Total Users: <b>{stats['users']}</b>",
             reply_markup=admin_keyboard(),
-            parse_mode="html"
+            parse_mode="HTML"
         )
 
     elif data == "cb_chats":
@@ -191,7 +191,7 @@ async def callback_query_handler(client: Client, query: CallbackQuery):
         await query.message.edit_text(
             f"Total Chats: <b>{stats['chats']}</b>",
             reply_markup=admin_keyboard(),
-            parse_mode="html"
+            parse_mode="HTML"
         )
 
     elif data == "cb_givefeatures":
@@ -205,14 +205,14 @@ async def callback_query_handler(client: Client, query: CallbackQuery):
             "• Group and user broadcast\n"
             "• And more!",
             reply_markup=features_keyboard(),
-            parse_mode="html"
+            parse_mode="HTML"
         )
 
     elif data == "back":
         await query.message.edit_caption(
             CAPTIONS[0].format(user_mention=query.from_user.mention),
             reply_markup=main_keyboard(),
-            parse_mode="html"
+            parse_mode="HTML"
         )
 
     elif data.startswith("filterlang_"):
@@ -238,7 +238,7 @@ async def callback_query_handler(client: Client, query: CallbackQuery):
         await query.message.edit_text(
             f"Files for <b>{movie_name}</b> [{lang}]:",
             reply_markup=InlineKeyboardMarkup(file_buttons),
-            parse_mode="html"
+            parse_mode="HTML"
         )
 
     elif data.startswith("allfiles_"):
@@ -283,7 +283,7 @@ async def start_handler(client: Client, message: Message):
         IMAGE_URLS[0],
         caption=CAPTIONS[0].format(user_mention=message.from_user.mention),
         reply_markup=main_keyboard(),
-        parse_mode="html"
+        parse_mode="HTML"
     )
 
 # ========== GROUP HANDLER ==========
@@ -309,7 +309,7 @@ async def group_movie_search_handler(client: Client, message: Message):
     await message.reply(
         f"Results for <b>{query}</b>:",
         reply_markup=InlineKeyboardMarkup(buttons),
-        parse_mode="html"
+        parse_mode="HTML"
     )
 
 # ========== SAVE FILE TO DB_CHANNEL & INDEX ==========
