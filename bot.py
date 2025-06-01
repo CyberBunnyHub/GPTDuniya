@@ -6,7 +6,7 @@ from datetime import datetime
 from bson import ObjectId
 from pymongo import MongoClient
 from pyrogram import Client, filters
-from pyrogram.enums import ParseMode
+from pyrogram.enum import ParseMode
 from pyrogram.errors import MessageNotModified, UserNotParticipant, FloodWait
 from pyrogram.types import (
     Message, InlineKeyboardMarkup, InlineKeyboardButton,
@@ -61,7 +61,14 @@ def extract_language(text):
         if lang in text.lower():
             return lang.capitalize()
     return "Unknown"
-    
+
+async def is_admin(client, chat_id, user_id):
+    try:
+        member = await client.get_chat_member(chat_id, user_id)
+        return member.status in ("administrator", "creator")
+    except Exception:
+        return False
+
 async def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All", client=None):
     total_pages = (len(results) + per_page - 1) // per_page
     start = page * per_page
@@ -113,24 +120,35 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 
     return InlineKeyboardMarkup(buttons)
 
-@app.on_message(filters.command("start") & filters.private & filters.group)
+@app.on_message(filters.command("start") & (filters.private | filters.group))
 async def start_cmd(client, message: Message):
-    # Check if this is a new user
-    existing_user = users_col.find_one({"_id": message.from_user.id})
-    if not existing_user:
-        await log_event("new_user", message.from_user.id, extra_data={
-            "username": message.from_user.username,
-            "first_name": message.from_user.first_name,
-            "last_name": message.from_user.last_name
-        })
-    
+    if message.chat.type == "private":
+        existing_user = users_col.find_one({"_id": message.from_user.id})
+        if not existing_user:
+            users_col.insert_one({
+                "_id": message.from_user.id,
+                "username": message.from_user.username,
+                "first_name": message.from_user.first_name,
+                "last_name": message.from_user.last_name,
+                "date": datetime.now()
+            })
+    else:
+        groups_col.update_one(
+            {"_id": message.chat.id},
+            {"$set": {
+                "title": message.chat.title,
+                "username": message.chat.username,
+                "last_active": datetime.now()
+            }},
+            upsert=True
+        )
+
     emoji_msg = await message.reply("🍿")
     image = random.choice(IMAGE_URLS)
     user_mention = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
     caption = random.choice(CAPTIONS).format(user_mention=user_mention)
 
-    # Check subscription
-    if not await check_subscription(client, message.from_user.id):
+    if message.chat.type == "private" and not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
             [InlineKeyboardButton("Joined", callback_data="checksub")]
@@ -160,9 +178,6 @@ async def start_cmd(client, message: Message):
                     caption=caption,
                     parse_mode=ParseMode.HTML
                 )
-                await emoji_msg.delete()
-                return
-
             elif original_message.video:
                 await client.send_video(
                     chat_id=message.chat.id,
@@ -170,11 +185,8 @@ async def start_cmd(client, message: Message):
                     caption=caption,
                     parse_mode=ParseMode.HTML
                 )
-                await emoji_msg.delete()
-                return
-            else:
-                await emoji_msg.delete()
-                return await message.reply("❌ File not found or unsupported media type.")
+            await emoji_msg.delete()
+            return
 
         except Exception as e:
             await emoji_msg.delete()
@@ -188,17 +200,32 @@ async def start_cmd(client, message: Message):
     ])
 
     await emoji_msg.delete()
-    await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+    if message.chat.type == "private":
+        await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+    else:
+        await message.reply_photo(
+            image,
+            caption=f"Hey {message.chat.title}! I'm your movie bot. Search any movie name to get started.",
+            reply_markup=keyboard,
+            parse_mode=ParseMode.HTML
+        )
 
-@app.on_message(filters.private & filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup", "logs", "clearlogs"]) & ~filters.bot)
+@app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup", "logs", "clearlogs"]) & ~filters.bot)
 async def search_and_track(client, message: Message):
-    users_col.update_one(
-        {"_id": message.from_user.id},
-        {"$set": {"name": message.from_user.first_name}},
-        upsert=True
-    )
+    if message.chat.type == "private":
+        users_col.update_one(
+            {"_id": message.from_user.id},
+            {"$set": {"name": message.from_user.first_name, "last_active": datetime.now()}},
+            upsert=True
+        )
+    else:
+        groups_col.update_one(
+            {"_id": message.chat.id},
+            {"$set": {"title": message.chat.title, "last_active": datetime.now()}},
+            upsert=True
+        )
 
-    if not await check_subscription(client, message.from_user.id):
+    if message.chat.type == "private" and not await check_subscription(client, message.from_user.id):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
             [InlineKeyboardButton("Joined", callback_data="checksub")]
@@ -214,32 +241,37 @@ async def search_and_track(client, message: Message):
     }))
 
     if not results:
+        if message.chat.type == "private":
+            await message.reply("No results found for your query.")
         return
 
-    markup = await generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id, client=client)
-    await message.reply(
-        f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>",
-        reply_markup=markup,
-        parse_mode=ParseMode.HTML
+    markup = await generate_pagination_buttons(
+        results, 
+        (await client.get_me()).username, 
+        0, 
+        5, 
+        "search", 
+        query, 
+        message.from_user.id if message.chat.type == "private" else None,
+        client=client
     )
-
-@app.on_message(filters.command("cleanup") & filters.user(BOT_OWNER))
-async def cleanup_db(client, message: Message):
-    await message.reply_text("🔍 Scanning for orphaned (deleted in channel) files, please wait...")
-    deleted_count = 0
-    for doc in files_col.find({}):
-        try:
-            await client.get_messages(DB_CHANNEL, doc["message_id"])
-        except Exception:
-            files_col.delete_one({"_id": doc["_id"]})
-            deleted_count += 1
-    await message.reply_text(f"✅ Cleanup complete. Deleted {deleted_count} orphaned file entries.")
+    
+    reply_text = f"<blockquote>Hello {message.from_user.mention() if message.chat.type == 'private' else message.chat.title}👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>"
+    
+    if message.chat.type == "private":
+        await message.reply(reply_text, reply_markup=markup, parse_mode=ParseMode.HTML)
+    else:
+        await message.reply(
+            reply_text,
+            reply_markup=markup,
+            parse_mode=ParseMode.HTML,
+            reply_to_message_id=message.id
+        )
 
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
     data = query.data
     try:
-        # Pagination and search callback
         if data.startswith("search:") or data.startswith("movie:"):
             parts = data.split(":", 3)
             if len(parts) == 4:
@@ -258,7 +290,6 @@ async def handle_callbacks(client, query: CallbackQuery):
 
             results = list(files_col.find(query_filter))
 
-            # Remove files that are deleted in DB channel
             filtered_results = []
             for doc in results:
                 try:
@@ -281,8 +312,10 @@ async def handle_callbacks(client, query: CallbackQuery):
                 pass
             return await query.answer()
 
-        # Delete file
         elif data.startswith("deletefile:"):
+            if query.from_user.id != BOT_OWNER:
+                return await query.answer("You're not authorized!", show_alert=True)
+                
             file_id = data.split(":")[1]
             result = files_col.find_one({"_id": ObjectId(file_id)})
             if result:
@@ -292,14 +325,12 @@ async def handle_callbacks(client, query: CallbackQuery):
             else:
                 return await query.answer("❌ File not found.", show_alert=True)
 
-        # Help
         elif data == "help":
             keyboard = [
                 [InlineKeyboardButton("📊 Stats", callback_data="showstats"),
                  InlineKeyboardButton("🗂 Database", callback_data="database")]
             ]
             
-            # Add Admin button if user is admin
             if query.from_user.id == BOT_OWNER:
                 keyboard.append([InlineKeyboardButton("👑 Admin", callback_data="admin_panel")])
                 
@@ -311,7 +342,6 @@ async def handle_callbacks(client, query: CallbackQuery):
                 parse_mode=ParseMode.HTML
             )
 
-        # Admin Panel
         elif data == "admin_panel":
             if query.from_user.id != BOT_OWNER:
                 return await query.answer("You're not authorized!", show_alert=True)
@@ -332,7 +362,6 @@ async def handle_callbacks(client, query: CallbackQuery):
             )
             return await query.answer()
 
-        # Show statistics
         elif data == "showstats":
             users_count = users_col.count_documents({})
             groups_count = groups_col.count_documents({})
@@ -352,7 +381,6 @@ async def handle_callbacks(client, query: CallbackQuery):
                 parse_mode=ParseMode.HTML
             )
 
-        # Database
         elif data == "database":
             db_help_text = (
                 "<b>- - - - - - 🗂 How to Add Files - - - - - -</b>\n\n"
@@ -366,14 +394,12 @@ async def handle_callbacks(client, query: CallbackQuery):
                 parse_mode=ParseMode.HTML
             )
 
-        # Check subscription
         elif data == "checksub":
             if await check_subscription(client, query.from_user.id):
                 return await query.message.edit_text("Joined!")
             else:
                 return await query.answer("Please join the updates channel to use this bot.", show_alert=True)
 
-        # Get files for current page, language
         elif data.startswith("getfiles:"):
             parts = data.split(":")
             query_text = parts[1]
@@ -387,7 +413,6 @@ async def handle_callbacks(client, query: CallbackQuery):
                 query_filter["language"] = selected_lang.capitalize()
             results = list(files_col.find(query_filter))
 
-            # Filter out files missing from DB channel
             selected_docs = results[page * per_page: (page + 1) * per_page]
             filtered_docs = []
             for doc in selected_docs:
@@ -426,7 +451,6 @@ async def handle_callbacks(client, query: CallbackQuery):
                     print(f"Failed to send file: {e}")
             return
 
-        # About
         elif data == "about":
             bot_username = (await client.get_me()).username
             about_text = f"""- - - - - - 🍿About Me - - - - - -
@@ -445,7 +469,6 @@ async def handle_callbacks(client, query: CallbackQuery):
                 parse_mode=ParseMode.HTML
             )
 
-        # Go back to main menu
         elif data == "back":
             image = random.choice(IMAGE_URLS)
             caption = random.choice(CAPTIONS).format(
@@ -464,7 +487,6 @@ async def handle_callbacks(client, query: CallbackQuery):
                 except Exception:
                     pass
 
-        # Show language filter menu
         elif data.startswith("langs:"):
             _, query_text, _ = data.split(":", 2)
             encoded_query = base64.urlsafe_b64encode(query_text.encode()).decode()
@@ -479,7 +501,6 @@ async def handle_callbacks(client, query: CallbackQuery):
             )
             return await query.answer()
 
-        # Language selection for search
         elif data.startswith("langselect:"):
             parts = data.split(":", 2)
             if len(parts) < 3:
@@ -495,7 +516,6 @@ async def handle_callbacks(client, query: CallbackQuery):
                     "language": selected_lang
                 }))
 
-                # Only keep files that still exist in the channel
                 filtered_results = []
                 for doc in results:
                     try:
@@ -536,31 +556,8 @@ async def handle_callbacks(client, query: CallbackQuery):
         print(f"Error in callback: {e}")
         await query.answer("An error occurred.", show_alert=True)
 
-async def store_user_channel(channel_id):
-    user_channels_col.update_one(
-        {"_id": channel_id},
-        {"$set": {"_id": channel_id}},
-        upsert=True
-    )
-
-async def check_and_store_user_channel(client, message: Message):
-    if message.forward_from_chat:
-        channel_id = message.forward_from_chat.id
-        await store_user_channel(channel_id)
-        try:
-            member = await client.get_chat_member(channel_id, (await client.get_me()).id)
-            if member.status not in ("administrator", "creator"):
-                print(f"Bot is not an admin in user channel: {channel_id}")
-            else:
-                print(f"Bot is an admin in user channel: {channel_id}")
-        except Exception as e:
-            print(f"Error checking admin status for user channel {channel_id}: {e}")
-
 @app.on_message(filters.private & filters.forwarded)
 async def process_forwarded_message(client, message: Message):
-    # Check and store the user channel
-    await check_and_store_user_channel(client, message)
-
     if not message.forward_from_chat or not message.forward_from_message_id:
         await message.reply_text("❌ Please forward the **last message** from a channel **with quotes**.")
         return
@@ -570,7 +567,6 @@ async def process_forwarded_message(client, message: Message):
     count = 0
     live_message = await message.reply_text("🔍 Scanning files... **0** found")
 
-    # Start from the last message and go backward
     current_msg_id = last_msg_id
 
     while current_msg_id > 0:
@@ -590,7 +586,6 @@ async def process_forwarded_message(client, message: Message):
             language = extract_language(combined_text)
             file_type = "document" if msg.document else "video"
 
-            # Check for duplicates
             existing = files_col.find_one({
                 "file_name": file_name,
                 "file_size": file_size
@@ -599,12 +594,11 @@ async def process_forwarded_message(client, message: Message):
                 current_msg_id -= 1
                 continue
 
-            # Copy to DB_CHANNEL
             try:
                 sent = await client.copy_message(DB_CHANNEL, chat_id, current_msg_id)
             except FloodWait as e:
                 await asyncio.sleep(e.value)
-                continue  # Retry after waiting
+                continue
 
             files_col.insert_one({
                 "file_name": file_name,
@@ -618,58 +612,30 @@ async def process_forwarded_message(client, message: Message):
             })
 
             count += 1
-            if count % 5 == 0:  # Update progress every 5 files
+            if count % 5 == 0:
                 await live_message.edit_text(f"📂 Scanning files... **{count}** found")
             
-            current_msg_id -= 1  # Move to the previous message
+            current_msg_id -= 1
 
         except Exception as e:
             print(f"Error at message {current_msg_id}: {e}")
-            current_msg_id -= 1  # Skip problematic messages
+            current_msg_id -= 1
             continue
 
-    # Final update
     await live_message.edit_text(f"✅ **Done!** {count} files added to the database.")
-    
-@app.on_message(filters.group & filters.text)
-async def track_group(client, message: Message):
-    groups_col.update_one(
-        {"_id": message.chat.id},
-        {"$set": {"title": message.chat.title}},
-        upsert=True
-    )
-
-@app.on_message(filters.group & filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup", "logs", "clearlogs"]) & ~filters.bot)
-async def search_in_group(client, message: Message):
-    user_query = message.text.strip()
-    query = normalize_text(user_query)
-
-    results = list(files_col.find({
-        "normalized_name": {"$regex": query, "$options": "i"}
-    }))
-
-    if not results:
-        return
-
-    markup = await generate_pagination_buttons(
-        results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id, client=client
-    )
-    await message.reply(
-        f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>",
-        reply_markup=markup,
-        parse_mode=ParseMode.HTML
-    )
     
 @app.on_message(filters.new_chat_members)
 async def welcome_group(client, message: Message):
     for user in message.new_chat_members:
         if user.id == (await client.get_me()).id:
-            # This is the bot being added to a new group
             existing_group = groups_col.find_one({"_id": message.chat.id})
             if not existing_group:
-                await log_event("new_group", message.from_user.id, message.chat.id, {
-                    "group_title": message.chat.title,
-                    "added_by": message.from_user.id
+                groups_col.insert_one({
+                    "_id": message.chat.id,
+                    "title": message.chat.title,
+                    "username": message.chat.username,
+                    "added_by": message.from_user.id,
+                    "date": datetime.now()
                 })
             
             group_title = message.chat.title
@@ -694,7 +660,6 @@ async def save_file(client, message: Message):
     normalized_name = normalize_text(file_name)
     language = extract_language(combined_text)
 
-    # Check for duplicate by file_name and file_size
     existing = files_col.find_one({
         "file_name": file_name,
         "file_size": file_size
