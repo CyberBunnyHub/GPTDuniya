@@ -234,6 +234,42 @@ async def start_cmd(client, message: Message):
             parse_mode=ParseMode.HTML
         )
 
+@app.on_message(filters.command("broadcast") & filters.user(BOT_OWNER))
+async def broadcast_message(client, message: Message):
+    # Accept text after /broadcast or reply to a message
+    if message.reply_to_message:
+        broadcast_text = message.reply_to_message.text or message.reply_to_message.caption
+        media = message.reply_to_message.document or message.reply_to_message.video or message.reply_to_message.photo
+    else:
+        args = message.text.split(None, 1)
+        if len(args) < 2:
+            return await message.reply("Usage:\n/broadcast your message or reply to a message to broadcast")
+        broadcast_text = args[1]
+        media = None
+
+    sent_count = 0
+    fail_count = 0
+
+    users = users_col.find({})
+    await message.reply(f"Broadcast started...\nTotal users: {users_col.count_documents({})}")
+    for user in users:
+        try:
+            if media:
+                if message.reply_to_message.document:
+                    await client.send_document(user["_id"], media.file_id, caption=broadcast_text)
+                elif message.reply_to_message.video:
+                    await client.send_video(user["_id"], media.file_id, caption=broadcast_text)
+                elif message.reply_to_message.photo:
+                    await client.send_photo(user["_id"], media.file_id, caption=broadcast_text)
+            else:
+                await client.send_message(user["_id"], broadcast_text)
+            sent_count += 1
+            await asyncio.sleep(0.1)
+        except Exception as e:
+            fail_count += 1
+            continue
+    await message.reply(f"Broadcast completed.\nSent: {sent_count}\nFailed: {fail_count}")
+
 @app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup", "logs", "clearlogs"]) & ~filters.bot)
 async def search_and_track(client, message: Message):
     if message.chat.type == "private":
