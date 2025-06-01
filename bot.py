@@ -425,21 +425,50 @@ async def handle_callbacks(client, query: CallbackQuery):
             if not filtered_docs:
                 return await query.answer("No files found on this page.", show_alert=True)
 
-            await query.answer("Sending selected files...")
+            await query.answer("Sending files to your PM...")
+            
+            # Check if we're in a group
+            if query.message.chat.type != "private":
+                try:
+                    # Send a message to the user's PM first
+                    await client.send_message(
+                        query.from_user.id,
+                        f"Here are the files you requested from group '{query.message.chat.title}':"
+                    )
+                except Exception as e:
+                    # If bot can't message user, provide a link to start chat
+                    await query.message.reply(
+                        "Please start a chat with me first to receive the files.",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton(
+                                "Start Private Chat",
+                                url=f"https://t.me/{(await client.get_me()).username}?start=start"
+                            )
+                        ]])
+                    )
+                    return
+
+            # Send files to user's PM
             for doc in filtered_docs:
                 try:
                     original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
                     caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
+                    
+                    if query.message.chat.type == "private":
+                        target_chat = query.message.chat.id
+                    else:
+                        target_chat = query.from_user.id
+                    
                     if original_message.document:
                         await client.send_document(
-                            chat_id=query.message.chat.id,
+                            chat_id=target_chat,
                             document=original_message.document.file_id,
                             caption=caption,
                             parse_mode=ParseMode.HTML
                         )
                     elif original_message.video:
                         await client.send_video(
-                            chat_id=query.message.chat.id,
+                            chat_id=target_chat,
                             video=original_message.video.file_id,
                             caption=caption,
                             parse_mode=ParseMode.HTML
@@ -449,8 +478,22 @@ async def handle_callbacks(client, query: CallbackQuery):
                     await asyncio.sleep(e.value)
                 except Exception as e:
                     print(f"Failed to send file: {e}")
+                    
+            # Notify in group if needed
+            if query.message.chat.type != "private":
+                await query.message.reply(
+                    f"I've sent the files to {query.from_user.mention}'s private messages.",
+                    reply_to_message_id=query.message.id
+                )
             return
 
+        # ... [rest of the callback handlers remain unchanged] ...
+
+    except Exception as e:
+        print(f"Callback data: {data}")
+        print(f"Error in callback: {e}")
+        await query.answer("An error occurred.", show_alert=True)
+        
         elif data == "about":
             bot_username = (await client.get_me()).username
             about_text = f"""- - - - - - 🍿About Me - - - - - -
