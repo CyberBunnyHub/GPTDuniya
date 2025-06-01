@@ -270,6 +270,47 @@ async def broadcast_message(client, message: Message):
             continue
     await message.reply(f"Broadcast completed.\nSent: {sent_count}\nFailed: {fail_count}")
 
+@app.on_message(filters.command("grp_broadcast") & filters.private)
+async def group_broadcast(client, message: Message):
+    # Only allow bot owner
+    if message.from_user.id != BOT_OWNER:
+        return await message.reply("You are not authorized to use this command.")
+
+    # Get the broadcast text (either from command or reply)
+    if message.reply_to_message:
+        broadcast_text = message.reply_to_message.text or message.reply_to_message.caption
+    else:
+        if len(message.command) < 2:
+            return await message.reply("Reply to a message or provide text after the command to broadcast.")
+        broadcast_text = message.text.split(None, 1)[1]
+
+    if not broadcast_text:
+        return await message.reply("No message to broadcast.")
+
+    groups = list(groups_col.find({}))
+    total = len(groups)
+    success = 0
+    failed = 0
+
+    status_msg = await message.reply(f"Broadcast started to {total} groups...")
+
+    for group in groups:
+        try:
+            await client.send_message(group["_id"], broadcast_text)
+            success += 1
+            await asyncio.sleep(0.2)
+        except FloodWait as e:
+            await asyncio.sleep(e.value)
+            try:
+                await client.send_message(group["_id"], broadcast_text)
+                success += 1
+            except Exception:
+                failed += 1
+        except Exception:
+            failed += 1
+
+    await status_msg.edit_text(f"Broadcast finished!\n\nSuccess: {success}\nFailed: {failed}\nTotal: {total}")
+
 @app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup", "logs", "clearlogs"]) & ~filters.bot)
 async def search_and_track(client, message: Message):
     if message.chat.type == "private":
