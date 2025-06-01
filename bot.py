@@ -144,7 +144,6 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 
     return InlineKeyboardMarkup(buttons)
 
-@app.on_message(filters.command("start") & (filters.private | filters.group))
 async def start_cmd(client, message: Message):
     if message.chat.type == "private":
         existing_user = users_col.find_one({"_id": message.from_user.id})
@@ -166,20 +165,14 @@ async def start_cmd(client, message: Message):
             }},
             upsert=True
         )
-
-    emoji_msg = await message.reply("🍿")
-    image = random.choice(IMAGE_URLS)
-    user_mention = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
-    caption = random.choice(CAPTIONS).format(user_mention=user_mention)
-
-    if message.chat.type == "private" and not await check_subscription(client, message.from_user.id):
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Joined", callback_data="checksub")]
+        # Send simple response in groups
+        group_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")]
         ])
-        await emoji_msg.delete()
-        return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
+        return await message.reply("Hey, I'm alive! Use /start in private for more options.", reply_markup=group_keyboard)
 
+    # Private chat: handle file start
+    emoji_msg = await message.reply("🍿")
     args = message.text.split()
     if len(args) > 1:
         try:
@@ -211,12 +204,25 @@ async def start_cmd(client, message: Message):
                 )
             await emoji_msg.delete()
             return
-
         except Exception as e:
             await emoji_msg.delete()
             return await message.reply(f"❌ Error retrieving file:\n\n{e}")
 
+    # Channel subscription check
+    if not await check_subscription(client, message.from_user.id):
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
+            [InlineKeyboardButton("Joined", callback_data="checksub")]
+        ])
+        await emoji_msg.delete()
+        return await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
+
+    # Regular start message
+    image = random.choice(IMAGE_URLS)
+    user_mention = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
+    caption = random.choice(CAPTIONS).format(user_mention=user_mention)
     bot_username = (await client.get_me()).username
+
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{bot_username}?startgroup=true")],
         [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
@@ -224,13 +230,16 @@ async def start_cmd(client, message: Message):
     ])
 
     await emoji_msg.delete()
-    group_keyboard = InlineKeyboardMarkup([
-    [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")]
-    ])
-    await message.reply(
-        "Hey I am Alive",
-        reply_markup=group_keyboard
-    )
+    return await message.reply_photo(
+        photo=image,
+        caption=caption,
+        reply_markup=keyboard,
+        parse_mode=ParseMode.HTML
+                )
+    
+@app.on_message(filters.command("start") & filters.group)
+async def block_start_in_group(client, message: Message):
+    return  # do nothing
 
 @app.on_message(filters.command("broadcast") & filters.user(BOT_OWNER))
 async def broadcast_message(client, message: Message):
