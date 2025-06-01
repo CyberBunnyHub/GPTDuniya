@@ -61,22 +61,7 @@ def extract_language(text):
         if lang in text.lower():
             return lang.capitalize()
     return "Unknown"
-
-async def log_event(event_type: str, user_id: int, chat_id: int = None, extra_data: dict = None):
-    """Log an event to the database"""
-    log_data = {
-        "event_type": event_type,
-        "user_id": user_id,
-        "timestamp": datetime.now(),
-    }
     
-    if chat_id:
-        log_data["chat_id"] = chat_id
-    if extra_data:
-        log_data.update(extra_data)
-    
-    logs_col.insert_one(log_data)
-
 async def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All", client=None):
     total_pages = (len(results) + per_page - 1) // per_page
     start = page * per_page
@@ -128,7 +113,7 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 
     return InlineKeyboardMarkup(buttons)
 
-@app.on_message(filters.command("start") & filters.private)
+@app.on_message(filters.command("start") & filters.private & filters.group)
 async def start_cmd(client, message: Message):
     # Check if this is a new user
     existing_user = users_col.find_one({"_id": message.from_user.id})
