@@ -224,15 +224,13 @@ async def start_cmd(client, message: Message):
     ])
 
     await emoji_msg.delete()
-    if message.chat.type == "private":
-        await message.reply_photo(image, caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-    else:
-        await message.reply_photo(
-            image,
-            caption=f"Hey {message.chat.title}! I'm your movie bot. Search any movie name to get started.",
-            reply_markup=keyboard,
-            parse_mode=ParseMode.HTML
-        )
+    group_keyboard = InlineKeyboardMarkup([
+    [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")]
+    ])
+    await message.reply(
+        "Hey I am Alive",
+        reply_markup=group_keyboard
+    )
 
 @app.on_message(filters.command("broadcast") & filters.user(BOT_OWNER))
 async def broadcast_message(client, message: Message):
@@ -311,70 +309,7 @@ async def group_broadcast(client, message: Message):
 
     await status_msg.edit_text(f"Broadcast finished!\n\nSuccess: {success}\nFailed: {failed}\nTotal: {total}")
 
-@app.on_message(filters.command("users") & filters.private)
-async def list_users(client, message: Message):
-    if message.from_user.id != BOT_OWNER:
-        return await message.reply("You are not authorized to use this command.")
-
-    me = await client.get_me()
-    users = list(users_col.find({}))
-    if not users:
-        return await message.reply("No users found.")
-
-    lines = []
-    for user in users:
-        # Exclude the bot itself
-        if user.get("_id") == me.id:
-            continue
-        first_name = user.get("first_name", "User")
-        user_id = user["_id"]
-        link = f'<a href="tg://user?id={user_id}">{first_name}</a>'
-        lines.append(link)
-
-    # Telegram message limit is 4096 chars
-    chunk = ""
-    for line in lines:
-        if len(chunk) + len(line) + 1 > 4000:
-            await message.reply(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
-            chunk = ""
-        chunk += line + "\n"
-    if chunk:
-        await message.reply(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
-
-@app.on_message(filters.command("chats") & filters.private)
-async def list_groups(client, message: Message):
-    if message.from_user.id != BOT_OWNER:
-        return await message.reply("You are not authorized to use this command.")
-
-    groups = list(groups_col.find({}))
-    if not groups:
-        return await message.reply("No groups found.")
-
-    lines = []
-    for group in groups:
-        title = group.get("title", "Group")
-        chat_id = group["_id"]
-        username = group.get("username")
-        if username:
-            # Public group link
-            link = f'<a href="https://t.me/{username}">{title}</a>'
-        elif str(chat_id).startswith("-100"):
-            # Private/supergroup internal link
-            link = f'<a href="https://t.me/c/{str(chat_id)[4:]}">{title}</a>'
-        else:
-            link = f"{title} (ID: {chat_id})"
-        lines.append(link)
-
-    chunk = ""
-    for line in lines:
-        if len(chunk) + len(line) + 1 > 4000:
-            await message.reply(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
-            chunk = ""
-        chunk += line + "\n"
-    if chunk:
-        await message.reply(chunk, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
-        
-@app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup", "logs", "clearlogs"]) & ~filters.bot)
+@app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup"]) & ~filters.bot)
 async def search_and_track(client, message: Message):
     if message.chat.type == "private":
         users_col.update_one(
@@ -501,7 +436,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             keyboard.append([InlineKeyboardButton("⟲ Back", callback_data="back")])
             
             return await query.message.edit_text(
-                "Welcome To My Store!\n\n<blockquote>Note: Under Construction...🚧</blockquote>",
+                "Welcome To My Store!\n\n<blockquote>{Note: Under Construction...🚧}</blockquote>",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode=ParseMode.HTML
             )
@@ -515,9 +450,6 @@ async def handle_callbacks(client, query: CallbackQuery):
                 "Available Commands:\n"
                 "/broadcast - Broadcast message to all users\n"
                 "/grp_broadcast - Broadcast to all groups\n"
-                "/chats - List all chats\n"
-                "/users - List all users\n"
-                "/stats - Show bot stats\n"
                 "/cleanup - Cleanup database",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("⟲ Back", callback_data="help")]
