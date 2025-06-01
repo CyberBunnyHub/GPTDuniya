@@ -16,7 +16,7 @@ from flask import Flask
 import os
 import threading
 from config import (
-    BOT_TOKEN, API_ID, API_HASH, BOT_OWNER, MONGO_URI,
+    BOT_TOKEN, LOG_CHANNEL, API_ID, API_HASH, BOT_OWNER, MONGO_URI,
     DB_CHANNEL, IMAGE_URLS, CAPTIONS,
     UPDATE_CHANNEL, SUPPORT_GROUP
 )
@@ -31,7 +31,6 @@ files_col = db["files"]
 users_col = db["users"]
 groups_col = db["groups"]
 user_channels_col = db["user_channels"]
-logs_col = db["logs"]
 
 # Flask setup for Render
 flask_app = Flask(__name__)
@@ -340,8 +339,6 @@ async def handle_callbacks(client, query: CallbackQuery):
                 "/chats - List all chats\n"
                 "/users - List all users\n"
                 "/stats - Show bot stats\n"
-                "/logs - View activity logs\n"
-                "/clearlogs - Clear all logs\n"
                 "/cleanup - Cleanup database",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("⟲ Back", callback_data="help")]
@@ -448,6 +445,7 @@ async def handle_callbacks(client, query: CallbackQuery):
         elif data == "about":
             bot_username = (await client.get_me()).username
             about_text = f"""- - - - - - 🍿About Me - - - - - -
+            
 -ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
 -ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
 -ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
@@ -654,6 +652,25 @@ async def track_group(client, message: Message):
         {"_id": message.chat.id},
         {"$set": {"title": message.chat.title}},
         upsert=True
+    )
+
+@app.on_message(filters.group & filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup", "logs", "clearlogs"]) & ~filters.bot)
+async def search_in_group(client, message: Message):
+    user_query = message.text.strip()
+    query = normalize_text(user_query)
+
+    results = list(files_col.find({
+        "normalized_name": {"$regex": query, "$options": "i"}
+    }))
+
+    if not results:
+        return
+
+    markup = await generate_pagination_buttons(results, (await client.get_me()).username, 0, 5, "search", query, message.from_user.id, client=client)
+    await message.reply(
+        f"<blockquote>Hello <a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>",
+        reply_markup=markup,
+        parse_mode=ParseMode.HTML
     )
 
 @app.on_message(filters.new_chat_members)
