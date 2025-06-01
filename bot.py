@@ -454,10 +454,8 @@ async def handle_callbacks(client, query: CallbackQuery):
                     original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
                     caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
                     
-                    if query.message.chat.type == "private":
-                        target_chat = query.message.chat.id
-                    else:
-                        target_chat = query.from_user.id
+                    # Always send to PM, even if in private chat
+                    target_chat = query.from_user.id
                     
                     if original_message.document:
                         await client.send_document(
@@ -487,13 +485,6 @@ async def handle_callbacks(client, query: CallbackQuery):
                 )
             return
 
-        # ... [rest of the callback handlers remain unchanged] ...
-
-    except Exception as e:
-        print(f"Callback data: {data}")
-        print(f"Error in callback: {e}")
-        await query.answer("An error occurred.", show_alert=True)
-        
         elif data == "about":
             bot_username = (await client.get_me()).username
             about_text = f"""- - - - - - 🍿About Me - - - - - -
