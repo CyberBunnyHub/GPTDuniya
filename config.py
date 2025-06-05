@@ -10,9 +10,9 @@ COLLECTION_NAME = "CBI"
 
 # UI Elements
 IMAGE_URLS = [
-    "https://envs.sh/g7C.jpg",
-    "https://envs.sh/g71.jpg",
-    "https://envs.sh/g7R.jpg"
+    "https://i.ibb.co/cSkDcyQH/d2c3ffef1693.jpg",
+    "https://i.ibb.co/KcD29Vw6/36ea5dbb65f5.jpg",
+    "https://i.ibb.co/HpdYbs21/93eaa5026aa1.jpg"
 ]
 
 CAPTIONS = [
