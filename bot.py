@@ -23,7 +23,7 @@ from config import (
 
 PREDEFINED_LANGUAGES = ["Kannada", "English", "Hindi", "Tamil", "Telugu", "Malayalam"]
 
-app = Client("CyberBunny", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, parse_mode="HTML")
+app = Client("CyberBunny", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 mongo = MongoClient(MONGO_URI)
 db = mongo["autofilter"]
@@ -165,7 +165,7 @@ async def start_handler(client, message):
         photo=image,
         caption=caption,
         reply_markup=keyboard,
-        parse_mode="HTML"
+        parse_mode=ParseMode.HTML
     )
 
 @app.on_message(filters.command("broadcast") & filters.user(BOT_OWNER))
