@@ -165,7 +165,7 @@ async def start_handler(client, message):
         photo=image,
         caption=caption,
         reply_markup=keyboard,
-        parse_mode="html"
+        parse_mode="HTML"
     )
 
 @app.on_message(filters.command("broadcast") & filters.user(BOT_OWNER))
