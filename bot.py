@@ -23,7 +23,7 @@ from config import (
 
 PREDEFINED_LANGUAGES = ["Kannada", "English", "Hindi", "Tamil", "Telugu", "Malayalam"]
 
-app = Client("CyberBunny", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client("CyberBunny", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, parse_mode="HTML")
 
 mongo = MongoClient(MONGO_URI)
 db = mongo["autofilter"]
@@ -146,7 +146,7 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 
 @app.on_message(filters.command("start") & filters.private)
 async def start_handler(client, message):
-    loading = await message.reply("🍿 Loading...")
+    loading = await message.reply("🍿")
     await asyncio.sleep(2)
     await loading.delete()
 
