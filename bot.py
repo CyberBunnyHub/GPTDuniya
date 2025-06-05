@@ -144,105 +144,30 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 
     return InlineKeyboardMarkup(buttons)
 
-async def start_cmd(client, message: Message):
-    image = random.choice(IMAGE_URLS)
-    user_mention = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
-    caption = random.choice(CAPTIONS).format(user_mention=user_mention)
-    bot_username = (await client.get_me()).username
+@app.on_message(filters.command("start") & filters.private)
+async def start_handler(client, message):
+    loading = await message.reply("🍿 Loading...")
+    await asyncio.sleep(2)
+    await loading.delete()
 
-    group_keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")]
-    ])
-    private_keyboard = InlineKeyboardMarkup([
+    image = random.choice(IMAGE_URLS)
+    caption = random.choice(CAPTIONS).format(
+        user_mention=f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
+    )
+    bot_username = (await client.get_me()).username
+    keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{bot_username}?startgroup=true")],
         [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
         [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
     ])
 
-    if message.chat.type == "group" or message.chat.type == "supergroup":
-        groups_col.update_one(
-            {"_id": message.chat.id},
-            {"$set": {
-                "title": message.chat.title,
-                "username": message.chat.username,
-                "last_active": datetime.now()
-            }},
-            upsert=True
-        )
-        return await message.reply_photo(
-            image,
-            caption=caption,
-            reply_markup=group_keyboard,
-            parse_mode=ParseMode.HTML
-        )
-
-    # private chat logic below
-    existing_user = users_col.find_one({"_id": message.from_user.id})
-    if not existing_user:
-        users_col.insert_one({
-            "_id": message.from_user.id,
-            "username": message.from_user.username,
-            "first_name": message.from_user.first_name,
-            "last_name": message.from_user.last_name,
-            "date": datetime.now()
-        })
-
-    emoji_msg = await message.reply("🍿")
-    args = message.text.split()
-    if len(args) > 1:
-        try:
-            doc = files_col.find_one({"_id": ObjectId(args[1])})
-            if not doc:
-                await emoji_msg.delete()
-                return await message.reply_photo(image, caption="❌ File not found.")
-            try:
-                original_message = await client.get_messages(doc["chat_id"], doc["message_id"])
-            except Exception:
-                await emoji_msg.delete()
-                return await message.reply_photo(image, caption="❌ File not found or has been deleted.")
-
-            file_caption = f"<code>{original_message.caption or doc.get('file_name', 'No Caption')}</code>"
-            if original_message.document:
-                await client.send_document(
-                    chat_id=message.chat.id,
-                    document=original_message.document.file_id,
-                    caption=file_caption,
-                    parse_mode=ParseMode.HTML
-                )
-            elif original_message.video:
-                await client.send_video(
-                    chat_id=message.chat.id,
-                    video=original_message.video.file_id,
-                    caption=file_caption,
-                    parse_mode=ParseMode.HTML
-                )
-            await emoji_msg.delete()
-            return
-        except Exception as e:
-            await emoji_msg.delete()
-            return await message.reply_photo(image, caption=f"❌ Error retrieving file:\n\n{e}")
-
-    # subscription check
-    if not await check_subscription(client, message.from_user.id):
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Joined", callback_data="checksub")]
-        ])
-        await emoji_msg.delete()
-        return await message.reply_photo(
-            photo=image,
-            caption="To use this bot, please join our channel first.",
-            reply_markup=keyboard
-        )
-
-    await emoji_msg.delete()
-    return await message.reply_photo(
+    await message.reply_photo(
         photo=image,
         caption=caption,
-        reply_markup=private_keyboard,
-        parse_mode=ParseMode.HTML
+        reply_markup=keyboard,
+        parse_mode="html"
     )
-    
+
 @app.on_message(filters.command("broadcast") & filters.user(BOT_OWNER))
 async def broadcast_message(client, message: Message):
     # Accept text after /broadcast or reply to a message
