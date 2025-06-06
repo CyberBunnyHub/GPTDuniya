@@ -24,5 +24,6 @@ I'ᴍ Lᴀᴛᴇꜱᴛ Aᴅᴠᴀɴᴄᴇᴅ & Pᴏᴡᴇʀꜰᴜʟ Aᴜᴛᴏ F
 ]
 
 # Support Links
-UPDATE_CHANNEL = "https://t.me/+giwNAm14E38xYjI9"
+UPDATE_CHANNEL = "-1002614983879"
 SUPPORT_GROUP = "https://t.me/VirabGroup"
+UPDATE = "https://t.me/+giwNAm14E38xYjI9"
