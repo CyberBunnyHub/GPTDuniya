@@ -45,15 +45,18 @@ def run_flask():
 def normalize_text(text):
     return re.sub(r"[^\w\s]", " ", text).lower().strip()
 
-async def check_subscription(client, user_id):
+async def check_user_subscription(client, user_id):
+    """Check if user is subscribed to the channel"""
+    if not UPDATE_CHANNEL:
+        return True
+        
     try:
-        if not UPDATE_CHANNEL:
-            return True
-            
+        # Check cache first
         user = await users_col.find_one({"_id": user_id})
-        if user and user.get("subscribed") and (datetime.now() - user.get("last_sub_check", datetime.min)).days < 1:
+        if user and user.get("subscribed"):
             return True
             
+        # Get actual channel status
         try:
             if UPDATE_CHANNEL.startswith("@"):
                 channel = UPDATE_CHANNEL
@@ -61,102 +64,65 @@ async def check_subscription(client, user_id):
                 channel = int(UPDATE_CHANNEL) if UPDATE_CHANNEL.lstrip("-").isdigit() else UPDATE_CHANNEL
             
             member = await client.get_chat_member(channel, user_id)
-            if member.status in ["member", "administrator", "creator"]:
-                await users_col.update_one(
-                    {"_id": user_id},
-                    {"$set": {"subscribed": True, "last_sub_check": datetime.now()}},
-                    upsert=True
-                )
-                return True
-                
-        except UserNotParticipant:
+            is_subscribed = member.status in ["member", "administrator", "creator"]
+            
+            # Update cache
             await users_col.update_one(
                 {"_id": user_id},
-                {"$set": {"subscribed": False, "last_sub_check": datetime.now()}},
+                {"$set": {"subscribed": is_subscribed}},
                 upsert=True
             )
-            return False
-        except Exception as e:
-            print(f"Subscription check error: {e}")
-            return True
+            return is_subscribed
             
-        return False
+        except UserNotParticipant:
+            return False
+            
     except Exception as e:
-        print(f"Error in check_subscription: {e}")
+        print(f"Subscription check error: {e}")
         return True
 
-async def force_subscribe(client, message):
+async def force_subscription(client, message):
+    """Check and enforce channel subscription"""
     if message.from_user and message.from_user.id == BOT_OWNER:
         return True
         
     if message.chat.type != "private":
         return True
         
-    if not await check_subscription(client, message.from_user.id):
-        try:
-            if str(UPDATE_CHANNEL).startswith("-100"):
-                channel_link = f"https://t.me/c/{str(UPDATE_CHANNEL)[4:]}"
-            elif str(UPDATE_CHANNEL).startswith("@"):
-                channel_link = f"https://t.me/{UPDATE_CHANNEL[1:]}"
-            else:
-                channel_link = f"https://t.me/{UPDATE_CHANNEL}"
-                
-            keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("✨ Join Channel", url=channel_link)],
-                [InlineKeyboardButton("🔄 Refresh", callback_data="checksub")],
-                [InlineKeyboardButton("❌ Close", callback_data="close")]
-            ])
-            
-            sent_msg = await message.reply(
-                f"**⚠️ Access Denied!**\n\n"
-                f"To use this bot, you need to join our channel first:\n"
-                f"➠ @{UPDATE_CHANNEL if UPDATE_CHANNEL.startswith('@') else UPDATE_CHANNEL}\n\n"
-                "After joining, click 'Refresh' below",
-                reply_markup=keyboard,
-                disable_web_page_preview=True
-            )
-            
-            await users_col.update_one(
-                {"_id": message.from_user.id},
-                {"$set": {"last_force_sub_msg": sent_msg.id}},
-                upsert=True
-            )
-            
-            return False
-        except Exception as e:
-            print(f"Error in force_subscribe: {e}")
-            return True
-            
-    return True
+    is_subscribed = await check_user_subscription(client, message.from_user.id)
+    if is_subscribed:
+        return True
+        
+    # Create channel join button
+    join_button = [[KeyboardButton("Join Channel", url=f"https://t.me/{UPDATE_CHANNEL}")]]
+    
+    # Send persistent keyboard that blocks all other actions
+    await message.reply(
+        "⚠️ You must join our channel to use this bot\n\n"
+        "After joining, click /start again",
+        reply_markup=ReplyKeyboardMarkup(join_button, resize_keyboard=True, one_time_keyboard=False)
+    )
+    return False
 
-async def cleanup_force_sub_messages(client):
+async def cleanup_subscription_cache():
+    """Periodically clean old subscription data"""
     while True:
         try:
-            threshold = datetime.now() - timedelta(days=1)
-            users = users_col.find({
-                "last_force_sub_msg": {"$exists": True},
-                "last_sub_check": {"$lt": threshold}
-            })
-            
-            async for user in users:
-                try:
-                    await client.delete_messages(user["_id"], user["last_force_sub_msg"])
-                    await users_col.update_one(
-                        {"_id": user["_id"]},
-                        {"$unset": {"last_force_sub_msg": ""}}
-                    )
-                except Exception:
-                    continue
-                
+            # Clear cache for users inactive for >7 days
+            threshold = datetime.now() - timedelta(days=7)
+            await users_col.update_many(
+                {"last_active": {"$lt": threshold}},
+                {"$unset": {"subscribed": ""}}
+            )
+            await asyncio.sleep(86400)  # Run daily
         except Exception as e:
             print(f"Cleanup error: {e}")
-            
-        await asyncio.sleep(3600)
+            await asyncio.sleep(3600)
 
 @app.on_startup()
 async def startup(client):
-    asyncio.create_task(cleanup_force_sub_messages(client))
-    
+    asyncio.create_task(cleanup_subscription_cache())
+            
 def extract_language(text):
     languages = ["hindi", "telugu", "tamil", "malayalam", "kannada", "english", "bengali"]
     for lang in languages:
@@ -248,8 +214,28 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 
 @app.on_message(filters.command("start") & filters.private)
 async def start_handler(client, message):
-    if not await force_subscribe(client, message):
+    # Check subscription first
+    if not await force_subscription(client, message):
         return
+        
+    # Clear the force-sub keyboard if it exists
+    try:
+        await message.reply(
+            "Welcome!",
+            reply_markup=ReplyKeyboardRemove()
+        )
+    except Exception:
+        pass
+        
+    # Rest of your start handler...
+
+@app.on_message(filters.private & ~filters.command("start"))
+async def private_message_handler(client, message):
+    # Check subscription for all private messages
+    if not await force_subscription(client, message):
+        return
+        
+    # Rest of your message handling...
         
     loading = await message.reply("🍿")
     await asyncio.sleep(2)
