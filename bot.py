@@ -18,7 +18,7 @@ import threading
 from config import (
     BOT_TOKEN, LOG_CHANNEL, API_ID, API_HASH, BOT_OWNER, MONGO_URI,
     DB_CHANNEL, IMAGE_URLS, CAPTIONS,
-    UPDATE_CHANNEL, SUPPORT_GROUP
+    UPDATE_CHANNEL, UPDATE, SUPPORT_GROUP
 )
 
 PREDEFINED_LANGUAGES = ["Kannada", "English", "Hindi", "Tamil", "Telugu", "Malayalam"]
@@ -223,7 +223,7 @@ async def start_handler(client, message):
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{bot_username}?startgroup=true")],
         [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
-        [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+        [InlineKeyboardButton("Updates", url=UPDATE), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
     ])
 
     await message.reply_photo(
@@ -558,7 +558,7 @@ async def handle_callbacks(client, query: CallbackQuery):
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("Add Me To Group", url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")],
                 [InlineKeyboardButton("⇋ Help", callback_data="help"), InlineKeyboardButton("About ⇌", callback_data="about")],
-                [InlineKeyboardButton("Updates", url=UPDATE_CHANNEL), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
+                [InlineKeyboardButton("Updates", url=UPDATE), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
             ])
             try:
                 return await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
@@ -726,7 +726,7 @@ async def welcome_group(client, message: Message):
                 f"Lᴇᴛ's Get Started..."
             )
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP), InlineKeyboardButton("Updates", url=UPDATE_CHANNEL)]
+                [InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP), InlineKeyboardButton("Updates", url=UPDATE)]
             ])
             await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
