@@ -52,9 +52,9 @@ async def check_subscription(client, user_id):
         if not UPDATE_CHANNEL:
             return True
             
-        # Check cached status first
+        # Check cached status first (with expiration)
         user = await users_col.find_one({"_id": user_id})
-        if user and user.get("subscribed"):
+        if user and user.get("subscribed") and (datetime.now() - user.get("last_sub_check", datetime.min)).days < 1:
             return True
             
         try:
@@ -66,16 +66,22 @@ async def check_subscription(client, user_id):
             
             member = await client.get_chat_member(channel, user_id)
             if member.status in ["member", "administrator", "creator"]:
-                # Update cache
+                # Update cache with timestamp
                 await users_col.update_one(
                     {"_id": user_id},
-                    {"$set": {"subscribed": True}},
+                    {"$set": {"subscribed": True, "last_sub_check": datetime.now()}},
                     upsert=True
                 )
                 return True
                 
         except UserNotParticipant:
-            pass
+            # User is not a member
+            await users_col.update_one(
+                {"_id": user_id},
+                {"$set": {"subscribed": False, "last_sub_check": datetime.now()}},
+                upsert=True
+            )
+            return False
         except Exception as e:
             print(f"Subscription check error: {e}")
             # If there's an error, allow access temporarily
@@ -107,23 +113,80 @@ async def force_subscribe(client, message):
                 
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("✨ Join Channel", url=channel_link)],
-                [InlineKeyboardButton("🔄 Already Joined", callback_data="checksub")]
+                [InlineKeyboardButton("🔄 Refresh", callback_data="checksub")],
+                [InlineKeyboardButton("❌ Close", callback_data="close")]
             ])
             
-            await message.reply(
-                f"**⚠️ Please join our channel to use this bot**\n\n"
-                f"Channel: @{UPDATE_CHANNEL if UPDATE_CHANNEL.startswith('@') else UPDATE_CHANNEL}\n\n"
-                "After joining, click 'Already Joined'",
+            sent_msg = await message.reply(
+                f"**⚠️ Access Denied!**\n\n"
+                f"To use this bot, you need to join our channel first:\n"
+                f"➠ @{UPDATE_CHANNEL if UPDATE_CHANNEL.startswith('@') else UPDATE_CHANNEL}\n\n"
+                "After joining, click 'Refresh' below",
                 reply_markup=keyboard,
                 disable_web_page_preview=True
             )
+            
+            # Store the message ID to delete it later
+            await users_col.update_one(
+                {"_id": message.from_user.id},
+                {"$set": {"last_force_sub_msg": sent_msg.id}},
+                upsert=True
+            )
+            
             return False
         except Exception as e:
             print(f"Error in force_subscribe: {e}")
             return True  # Allow if there's an error
             
     return True
+
+# Then modify your callback handler for "checksub":
+elif data == "checksub":
+    if await check_subscription(client, query.from_user.id):
+        await query.answer("Thanks for joining! ✅", show_alert=True)
         
+        # Delete the force sub message if exists
+        user_data = await users_col.find_one({"_id": query.from_user.id})
+        if user_data and "last_force_sub_msg" in user_data:
+            try:
+                await client.delete_messages(query.message.chat.id, user_data["last_force_sub_msg"])
+            except Exception:
+                pass
+        
+        # Restart the bot interaction
+        await start_handler(client, query.message)
+    else:
+        await query.answer("You haven't joined the channel yet. Please join and try again.", show_alert=True)
+
+async def cleanup_force_sub_messages(client):
+    while True:
+        try:
+            # Find users with old force-sub messages
+            threshold = datetime.now() - timedelta(days=1)
+            users = users_col.find({
+                "last_force_sub_msg": {"$exists": True},
+                "last_sub_check": {"$lt": threshold}
+            })
+            
+            async for user in users:
+                try:
+                    await client.delete_messages(user["_id"], user["last_force_sub_msg"])
+                    await users_col.update_one(
+                        {"_id": user["_id"]},
+                        {"$unset": {"last_force_sub_msg": ""}}
+                    )
+                except Exception:
+                    continue
+                
+        except Exception as e:
+            print(f"Cleanup error: {e}")
+            
+        await asyncio.sleep(3600)  # Run hourly
+
+@app.on_startup()
+async def startup(client):
+    asyncio.create_task(cleanup_force_sub_messages(client))
+    
 def extract_language(text):
     languages = ["hindi", "telugu", "tamil", "malayalam", "kannada", "english", "bengali"]
     for lang in languages:
