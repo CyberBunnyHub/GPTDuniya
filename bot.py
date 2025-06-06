@@ -48,23 +48,77 @@ def normalize_text(text):
 
 async def check_subscription(client, user_id):
     try:
-        member = await client.get_chat_member(UPDATE_CHANNEL, user_id)
-        return member.status in ("member", "administrator", "creator")
-    except UserNotParticipant:
+        # Skip check if no channel is set
+        if not UPDATE_CHANNEL:
+            return True
+            
+        # Check cached status first
+        user = await users_col.find_one({"_id": user_id})
+        if user and user.get("subscribed"):
+            return True
+            
+        try:
+            # Handle both public and private channels
+            if UPDATE_CHANNEL.startswith("@"):
+                channel = UPDATE_CHANNEL
+            else:
+                channel = int(UPDATE_CHANNEL) if UPDATE_CHANNEL.lstrip("-").isdigit() else UPDATE_CHANNEL
+            
+            member = await client.get_chat_member(channel, user_id)
+            if member.status in ["member", "administrator", "creator"]:
+                # Update cache
+                await users_col.update_one(
+                    {"_id": user_id},
+                    {"$set": {"subscribed": True}},
+                    upsert=True
+                )
+                return True
+                
+        except UserNotParticipant:
+            pass
+        except Exception as e:
+            print(f"Subscription check error: {e}")
+            # If there's an error, allow access temporarily
+            return True
+            
         return False
     except Exception as e:
-        print(f"Error checking subscription: {e}")
-        return True
+        print(f"Error in check_subscription: {e}")
+        return True  # Fail-safe: allow access if there's an error
 
-@app.on_message(filters.text & filters.private)
-async def handle_message(client, message: Message):
+async def force_subscribe(client, message):
+    # Skip for bot owner
+    if message.from_user.id == BOT_OWNER:
+        return True
+        
     if not await check_subscription(client, message.from_user.id):
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Joined", callback_data="checksub")]
-        ])
-        await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
-        return
+        try:
+            # Create proper channel link
+            if str(UPDATE_CHANNEL).startswith("-100"):
+                channel_link = f"https://t.me/c/{str(UPDATE_CHANNEL)[4:]}"
+            elif str(UPDATE_CHANNEL).startswith("@"):
+                channel_link = f"https://t.me/{UPDATE_CHANNEL[1:]}"
+            else:
+                channel_link = f"https://t.me/{UPDATE_CHANNEL}"
+                
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("✨ Join Channel", url=channel_link)],
+                [InlineKeyboardButton("🔄 Already Joined", callback_data="checksub")]
+            ])
+            
+            await message.reply(
+                f"**⚠️ Please join our channel to use this bot**\n\n"
+                f"Channel: {UPDATE_CHANNEL}\n\n"
+                "After joining, click 'Already Joined'",
+                reply_markup=keyboard,
+                disable_web_page_preview=True
+            )
+            return False
+        except Exception as e:
+            print(f"Error in force_subscribe: {e}")
+            return True  # Allow if there's an error
+            
+    return True
         
 def extract_language(text):
     languages = ["hindi", "telugu", "tamil", "malayalam", "kannada", "english", "bengali"]
