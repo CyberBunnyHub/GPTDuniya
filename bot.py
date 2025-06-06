@@ -45,16 +45,27 @@ def run_flask():
 
 def normalize_text(text):
     return re.sub(r"[^\w\s]", " ", text).lower().strip()
+    
+    async def check_subscription(client, user_id):
+       try:
+           member = await client.get_chat_member(UPDATE_CHANNEL, user_id)
+           return member.status in ("member", "administrator", "creator")
+       except UserNotParticipant:
+           return False
+       except Exception as e:
+           print(f"Error checking subscription: {e}")
+           return True
 
-async def check_subscription(client, user_id):
-    try:
-        member = await client.get_chat_member(UPDATE_CHANNEL, user_id)
-        return member.status in ("member", "administrator", "creator")
-    except UserNotParticipant:
-        return False
-    except Exception:
-        return True
-
+@app.on_message(filters.text & filters.private)
+async def handle_message(client, message: Message):
+    if not await check_subscription(client, message.from_user.id):
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
+            [InlineKeyboardButton("Joined", callback_data="checksub")]
+        ])
+        await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
+        return
+        
 def extract_language(text):
     languages = ["hindi", "telugu", "tamil", "malayalam", "kannada", "english", "bengali"]
     for lang in languages:
