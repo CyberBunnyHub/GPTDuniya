@@ -32,7 +32,6 @@ users_col = db["users"]
 groups_col = db["groups"]
 user_channels_col = db["user_channels"]
 
-# Flask setup for Render
 flask_app = Flask(__name__)
 
 @flask_app.route('/')
@@ -48,17 +47,14 @@ def normalize_text(text):
 
 async def check_subscription(client, user_id):
     try:
-        # Skip check if no channel is set
         if not UPDATE_CHANNEL:
             return True
             
-        # Check cached status first (with expiration)
         user = await users_col.find_one({"_id": user_id})
         if user and user.get("subscribed") and (datetime.now() - user.get("last_sub_check", datetime.min)).days < 1:
             return True
             
         try:
-            # Handle both public and private channels
             if UPDATE_CHANNEL.startswith("@"):
                 channel = UPDATE_CHANNEL
             else:
@@ -66,7 +62,6 @@ async def check_subscription(client, user_id):
             
             member = await client.get_chat_member(channel, user_id)
             if member.status in ["member", "administrator", "creator"]:
-                # Update cache with timestamp
                 await users_col.update_one(
                     {"_id": user_id},
                     {"$set": {"subscribed": True, "last_sub_check": datetime.now()}},
@@ -75,7 +70,6 @@ async def check_subscription(client, user_id):
                 return True
                 
         except UserNotParticipant:
-            # User is not a member
             await users_col.update_one(
                 {"_id": user_id},
                 {"$set": {"subscribed": False, "last_sub_check": datetime.now()}},
@@ -84,26 +78,22 @@ async def check_subscription(client, user_id):
             return False
         except Exception as e:
             print(f"Subscription check error: {e}")
-            # If there's an error, allow access temporarily
             return True
             
         return False
     except Exception as e:
         print(f"Error in check_subscription: {e}")
-        return True  # Fail-safe: allow access if there's an error
+        return True
 
 async def force_subscribe(client, message):
-    # Skip for bot owner
     if message.from_user and message.from_user.id == BOT_OWNER:
         return True
         
-    # Skip for group messages (only enforce in private)
     if message.chat.type != "private":
         return True
         
     if not await check_subscription(client, message.from_user.id):
         try:
-            # Create proper channel link
             if str(UPDATE_CHANNEL).startswith("-100"):
                 channel_link = f"https://t.me/c/{str(UPDATE_CHANNEL)[4:]}"
             elif str(UPDATE_CHANNEL).startswith("@"):
@@ -126,7 +116,6 @@ async def force_subscribe(client, message):
                 disable_web_page_preview=True
             )
             
-            # Store the message ID to delete it later
             await users_col.update_one(
                 {"_id": message.from_user.id},
                 {"$set": {"last_force_sub_msg": sent_msg.id}},
@@ -136,32 +125,13 @@ async def force_subscribe(client, message):
             return False
         except Exception as e:
             print(f"Error in force_subscribe: {e}")
-            return True  # Allow if there's an error
+            return True
             
     return True
-
-# Then modify your callback handler for "checksub":
-elif data == "checksub":
-    if await check_subscription(client, query.from_user.id):
-        await query.answer("Thanks for joining! ✅", show_alert=True)
-        
-        # Delete the force sub message if exists
-        user_data = await users_col.find_one({"_id": query.from_user.id})
-        if user_data and "last_force_sub_msg" in user_data:
-            try:
-                await client.delete_messages(query.message.chat.id, user_data["last_force_sub_msg"])
-            except Exception:
-                pass
-        
-        # Restart the bot interaction
-        await start_handler(client, query.message)
-    else:
-        await query.answer("You haven't joined the channel yet. Please join and try again.", show_alert=True)
 
 async def cleanup_force_sub_messages(client):
     while True:
         try:
-            # Find users with old force-sub messages
             threshold = datetime.now() - timedelta(days=1)
             users = users_col.find({
                 "last_force_sub_msg": {"$exists": True},
@@ -181,7 +151,7 @@ async def cleanup_force_sub_messages(client):
         except Exception as e:
             print(f"Cleanup error: {e}")
             
-        await asyncio.sleep(3600)  # Run hourly
+        await asyncio.sleep(3600)
 
 @app.on_startup()
 async def startup(client):
@@ -278,7 +248,6 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 
 @app.on_message(filters.command("start") & filters.private)
 async def start_handler(client, message):
-    # Check subscription first
     if not await force_subscribe(client, message):
         return
         
@@ -306,11 +275,9 @@ async def start_handler(client, message):
 
 @app.on_message(filters.command("broadcast") & filters.user(BOT_OWNER))
 async def broadcast_message(client, message: Message):
-    # Check subscription first (even for owner, to test functionality)
     if not await force_subscribe(client, message):
         return
         
-    # Accept text after /broadcast or reply to a message
     if message.reply_to_message:
         broadcast_text = message.reply_to_message.text or message.reply_to_message.caption
         media = message.reply_to_message.document or message.reply_to_message.video or message.reply_to_message.photo
@@ -346,15 +313,12 @@ async def broadcast_message(client, message: Message):
 
 @app.on_message(filters.command("grp_broadcast") & filters.private)
 async def group_broadcast(client, message: Message):
-    # Only allow bot owner
     if message.from_user.id != BOT_OWNER:
         return await message.reply("You are not authorized to use this command.")
 
-    # Check subscription first
     if not await force_subscribe(client, message):
         return
 
-    # Get the broadcast text (either from command or reply)
     if message.reply_to_message:
         broadcast_text = message.reply_to_message.text or message.reply_to_message.caption
     else:
@@ -391,7 +355,6 @@ async def group_broadcast(client, message: Message):
 
 @app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup"]) & ~filters.bot)
 async def search_and_track(client, message: Message):
-    # Check subscription first for private messages
     if message.chat.type == "private" and not await force_subscribe(client, message):
         return
         
@@ -427,7 +390,7 @@ async def search_and_track(client, message: Message):
         5, 
         "search", 
         query, 
-        message.from_user.id if message.chat.type == "private" else None,
+        message.from_user.id if message.chat.type == 'private' else None,
         client=client
     )
     
@@ -445,7 +408,6 @@ async def search_and_track(client, message: Message):
 
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
-    # Check subscription first for private messages
     if query.message.chat.type == "private" and not await force_subscribe(client, query.message):
         return await query.answer("Please join the channel first.", show_alert=True)
         
@@ -574,7 +536,6 @@ async def handle_callbacks(client, query: CallbackQuery):
             if await check_subscription(client, query.from_user.id):
                 await query.answer("Thanks for joining!", show_alert=True)
                 await query.message.delete()
-                # Restart the bot interaction
                 await start_handler(client, query.message)
             else:
                 return await query.answer("Please join the updates channel to use this bot.", show_alert=True)
@@ -721,7 +682,6 @@ async def handle_callbacks(client, query: CallbackQuery):
 
 @app.on_message(filters.private & filters.forwarded)
 async def process_forwarded_message(client, message: Message):
-    # Check subscription first
     if not await force_subscribe(client, message):
         return
         
@@ -849,12 +809,9 @@ async def save_file(client, message: Message):
 if __name__ == "__main__":
     from multiprocessing import Process
     
-    # Start Flask in a separate process
     flask_process = Process(target=run_flask)
     flask_process.start()
     
-    # Run Pyrogram
     app.run()
     
-    # Cleanup
     flask_process.terminate()
