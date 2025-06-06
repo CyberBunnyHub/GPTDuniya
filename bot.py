@@ -119,10 +119,6 @@ async def cleanup_subscription_cache():
             print(f"Cleanup error: {e}")
             await asyncio.sleep(3600)
 
-@app.on_startup()
-async def startup(client):
-    asyncio.create_task(cleanup_subscription_cache())
-            
 def extract_language(text):
     languages = ["hindi", "telugu", "tamil", "malayalam", "kannada", "english", "bengali"]
     for lang in languages:
