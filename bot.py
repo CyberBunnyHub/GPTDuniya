@@ -707,5 +707,14 @@ async def save_file(client, message: Message):
     print(f"Stored file: {file_name} | Language: {language}")
 
 if __name__ == "__main__":
-    threading.Thread(target=run_flask).start()
+    from multiprocessing import Process
+    
+    # Start Flask in a separate process
+    flask_process = Process(target=run_flask)
+    flask_process.start()
+    
+    # Run Pyrogram
     app.run()
+    
+    # Cleanup
+    flask_process.terminate()
