@@ -88,7 +88,11 @@ async def check_subscription(client, user_id):
 
 async def force_subscribe(client, message):
     # Skip for bot owner
-    if message.from_user.id == BOT_OWNER:
+    if message.from_user and message.from_user.id == BOT_OWNER:
+        return True
+        
+    # Skip for group messages (only enforce in private)
+    if message.chat.type != "private":
         return True
         
     if not await check_subscription(client, message.from_user.id):
@@ -108,7 +112,7 @@ async def force_subscribe(client, message):
             
             await message.reply(
                 f"**⚠️ Please join our channel to use this bot**\n\n"
-                f"Channel: {UPDATE_CHANNEL}\n\n"
+                f"Channel: @{UPDATE_CHANNEL if UPDATE_CHANNEL.startswith('@') else UPDATE_CHANNEL}\n\n"
                 "After joining, click 'Already Joined'",
                 reply_markup=keyboard,
                 disable_web_page_preview=True
@@ -211,6 +215,10 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 
 @app.on_message(filters.command("start") & filters.private)
 async def start_handler(client, message):
+    # Check subscription first
+    if not await force_subscribe(client, message):
+        return
+        
     loading = await message.reply("🍿")
     await asyncio.sleep(2)
     await loading.delete()
@@ -235,6 +243,10 @@ async def start_handler(client, message):
 
 @app.on_message(filters.command("broadcast") & filters.user(BOT_OWNER))
 async def broadcast_message(client, message: Message):
+    # Check subscription first (even for owner, to test functionality)
+    if not await force_subscribe(client, message):
+        return
+        
     # Accept text after /broadcast or reply to a message
     if message.reply_to_message:
         broadcast_text = message.reply_to_message.text or message.reply_to_message.caption
@@ -275,6 +287,10 @@ async def group_broadcast(client, message: Message):
     if message.from_user.id != BOT_OWNER:
         return await message.reply("You are not authorized to use this command.")
 
+    # Check subscription first
+    if not await force_subscribe(client, message):
+        return
+
     # Get the broadcast text (either from command or reply)
     if message.reply_to_message:
         broadcast_text = message.reply_to_message.text or message.reply_to_message.caption
@@ -312,6 +328,10 @@ async def group_broadcast(client, message: Message):
 
 @app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup"]) & ~filters.bot)
 async def search_and_track(client, message: Message):
+    # Check subscription first for private messages
+    if message.chat.type == "private" and not await force_subscribe(client, message):
+        return
+        
     if message.chat.type == "private":
         users_col.update_one(
             {"_id": message.from_user.id},
@@ -324,14 +344,6 @@ async def search_and_track(client, message: Message):
             {"$set": {"title": message.chat.title, "last_active": datetime.now()}},
             upsert=True
         )
-
-    if message.chat.type == "private" and not await check_subscription(client, message.from_user.id):
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Now!", url=UPDATE_CHANNEL)],
-            [InlineKeyboardButton("Joined", callback_data="checksub")]
-        ])
-        await message.reply("To use this bot, please join our channel first.", reply_markup=keyboard)
-        return
 
     user_query = message.text.strip()
     query = normalize_text(user_query)
@@ -370,6 +382,10 @@ async def search_and_track(client, message: Message):
 
 @app.on_callback_query()
 async def handle_callbacks(client, query: CallbackQuery):
+    # Check subscription first for private messages
+    if query.message.chat.type == "private" and not await force_subscribe(client, query.message):
+        return await query.answer("Please join the channel first.", show_alert=True)
+        
     data = query.data
     try:
         if data.startswith("search:") or data.startswith("movie:"):
@@ -493,7 +509,10 @@ async def handle_callbacks(client, query: CallbackQuery):
 
         elif data == "checksub":
             if await check_subscription(client, query.from_user.id):
-                return await query.message.edit_text("Joined!")
+                await query.answer("Thanks for joining!", show_alert=True)
+                await query.message.delete()
+                # Restart the bot interaction
+                await start_handler(client, query.message)
             else:
                 return await query.answer("Please join the updates channel to use this bot.", show_alert=True)
 
@@ -639,6 +658,10 @@ async def handle_callbacks(client, query: CallbackQuery):
 
 @app.on_message(filters.private & filters.forwarded)
 async def process_forwarded_message(client, message: Message):
+    # Check subscription first
+    if not await force_subscribe(client, message):
+        return
+        
     if not message.forward_from_chat or not message.forward_from_message_id:
         await message.reply_text("❌ Please forward the **last message** from a channel **with quotes**.")
         return
