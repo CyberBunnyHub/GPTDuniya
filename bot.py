@@ -100,7 +100,7 @@ async def force_sub_handler(client, message):
             
     return True
 
-async def cleanup_old_messages(client):
+async def cleanup_old_messages():
     while True:
         try:
             threshold = datetime.now() - timedelta(hours=6)
@@ -109,7 +109,7 @@ async def cleanup_old_messages(client):
             for user in users:
                 if user.get("last_sub_check", datetime.min) < threshold:
                     try:
-                        await client.delete_messages(user["_id"], user["last_force_sub_msg"])
+                        await app.delete_messages(user["_id"], user["last_force_sub_msg"])
                         await users_col.update_one(
                             {"_id": user["_id"]},
                             {"$unset": {"last_force_sub_msg": ""}}
@@ -121,62 +121,6 @@ async def cleanup_old_messages(client):
             print(f"Cleanup error: {e}")
             
         await asyncio.sleep(3600)
-
-@app.on_startup()
-async def startup(client):
-    asyncio.create_task(cleanup_old_messages(client))
-
-def extract_language(text):
-    languages = ["hindi", "telugu", "tamil", "malayalam", "kannada", "english"]
-    for lang in languages:
-        if lang in text.lower():
-            return lang.capitalize()
-    return "Unknown"
-
-async def verify_file_exists(client, doc):
-    try:
-        await client.get_messages(doc["chat_id"], doc["message_id"])
-        return True
-    except Exception:
-        return False
-
-async def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All"):
-    total_pages = (len(results) + per_page - 1) // per_page
-    start = page * per_page
-    end = start + per_page
-    page_data = results[start:end]
-
-    buttons = []
-    for doc in page_data:
-        exists = await verify_file_exists(client, doc)
-        if not exists:
-            continue
-
-        row = [InlineKeyboardButton(
-            f"🎬 {doc.get('file_name', 'Unnamed')[:30]}",
-            url=f"https://t.me/{bot_username}?start={doc['_id']}"
-        )]
-        if user_id == BOT_OWNER:
-            row.append(InlineKeyboardButton("✘", callback_data=f"deletefile:{doc['_id']}"))
-        buttons.append(row)
-
-    if buttons:
-        buttons.append([
-            InlineKeyboardButton("Gᴇᴛ Aʟʟ Fɪʟᴇs", callback_data=f"getfiles:{query}:{page}:{selected_lang}"),
-            InlineKeyboardButton("Lᴀɴɢᴜᴀɢᴇs", callback_data=f"langs:{query}:dummy")
-        ])
-
-        nav_buttons = []
-        if page > 0:
-            nav_buttons.append(InlineKeyboardButton("⟲ Bᴀᴄᴋ", callback_data=f"{prefix}:{page - 1}:{query}"))
-        nav_buttons.append(InlineKeyboardButton(f"Page {page + 1}/{total_pages}", callback_data="noop"))
-        if end < len(results):
-            nav_buttons.append(InlineKeyboardButton("Nᴇxᴛ ⇌", callback_data=f"{prefix}:{page + 1}:{query}"))
-
-        if nav_buttons:
-            buttons.append(nav_buttons)
-
-    return InlineKeyboardMarkup(buttons)
 
 @app.on_message(filters.command("start") & filters.private)
 async def start_handler(client, message):
@@ -392,10 +336,19 @@ async def callback_handler(client, query: CallbackQuery):
         print(f"Callback error: {e}")
         await query.answer("An error occurred.", show_alert=True)
 
+def start_bot():
+    app.run()
+
 if __name__ == "__main__":
     flask_process = Process(target=run_flask)
     flask_process.start()
     
-    app.run()
+    # Start the cleanup task in a separate thread
+    import threading
+    cleanup_thread = threading.Thread(target=asyncio.run, args=(cleanup_old_messages(),))
+    cleanup_thread.daemon = True
+    cleanup_thread.start()
+    
+    start_bot()
     
     flask_process.terminate()
