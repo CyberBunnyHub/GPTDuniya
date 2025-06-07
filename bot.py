@@ -2,7 +2,7 @@ import asyncio
 import random
 import re
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from bson import ObjectId
 from pymongo import MongoClient
 from pyrogram import Client, filters
@@ -14,7 +14,8 @@ from pyrogram.types import (
 )
 from flask import Flask
 import os
-import threading
+from multiprocessing import Process
+
 from config import (
     BOT_TOKEN, LOG_CHANNEL, API_ID, API_HASH, BOT_OWNER, MONGO_URI,
     DB_CHANNEL, IMAGE_URLS, CAPTIONS,
@@ -24,13 +25,11 @@ from config import (
 PREDEFINED_LANGUAGES = ["Kannada", "English", "Hindi", "Tamil", "Telugu", "Malayalam"]
 
 app = Client("CyberBunny", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
-
 mongo = MongoClient(MONGO_URI)
 db = mongo["autofilter"]
 files_col = db["files"]
 users_col = db["users"]
 groups_col = db["groups"]
-user_channels_col = db["user_channels"]
 
 flask_app = Flask(__name__)
 
@@ -45,93 +44,94 @@ def run_flask():
 def normalize_text(text):
     return re.sub(r"[^\w\s]", " ", text).lower().strip()
 
-async def check_user_subscription(client, user_id):
-    """Check if user is subscribed to the channel"""
+async def check_user_subscribed(client, user_id):
     if not UPDATE_CHANNEL:
         return True
-        
+    
     try:
-        # Check cache first
-        user = await users_col.find_one({"_id": user_id})
-        if user and user.get("subscribed"):
-            return True
-            
-        # Get actual channel status
-        try:
-            if UPDATE_CHANNEL.startswith("@"):
-                channel = UPDATE_CHANNEL
-            else:
-                channel = int(UPDATE_CHANNEL) if UPDATE_CHANNEL.lstrip("-").isdigit() else UPDATE_CHANNEL
-            
-            member = await client.get_chat_member(channel, user_id)
-            is_subscribed = member.status in ["member", "administrator", "creator"]
-            
-            # Update cache
-            await users_col.update_one(
-                {"_id": user_id},
-                {"$set": {"subscribed": is_subscribed}},
-                upsert=True
-            )
-            return is_subscribed
-            
-        except UserNotParticipant:
-            return False
-            
+        if UPDATE_CHANNEL.startswith("@"):
+            channel = UPDATE_CHANNEL
+        else:
+            channel = int(UPDATE_CHANNEL) if UPDATE_CHANNEL.lstrip("-").isdigit() else UPDATE_CHANNEL
+        
+        member = await client.get_chat_member(channel, user_id)
+        return member.status in ["member", "administrator", "creator"]
+    except UserNotParticipant:
+        return False
     except Exception as e:
         print(f"Subscription check error: {e}")
         return True
 
-async def force_subscription(client, message):
-    """Check and enforce channel subscription"""
+async def force_sub_handler(client, message):
     if message.from_user and message.from_user.id == BOT_OWNER:
         return True
         
     if message.chat.type != "private":
         return True
         
-    is_subscribed = await check_user_subscription(client, message.from_user.id)
-    if is_subscribed:
-        return True
-        
-    # Create channel join button
-    join_button = [[KeyboardButton("Join Channel", url=f"https://t.me/{UPDATE_CHANNEL}")]]
-    
-    # Send persistent keyboard that blocks all other actions
-    await message.reply(
-        "⚠️ You must join our channel to use this bot\n\n"
-        "After joining, click /start again",
-        reply_markup=ReplyKeyboardMarkup(join_button, resize_keyboard=True, one_time_keyboard=False)
-    )
-    return False
+    is_subscribed = await check_user_subscribed(client, message.from_user.id)
+    if not is_subscribed:
+        try:
+            if str(UPDATE_CHANNEL).startswith("-100"):
+                channel_link = f"https://t.me/c/{str(UPDATE_CHANNEL)[4:]}"
+            elif str(UPDATE_CHANNEL).startswith("@"):
+                channel_link = f"https://t.me/{UPDATE_CHANNEL[1:]}"
+            else:
+                channel_link = f"https://t.me/{UPDATE_CHANNEL}"
+                
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("✨ Join Channel", url=channel_link)],
+                [InlineKeyboardButton("🔄 Check Again", callback_data="check_sub")],
+                [InlineKeyboardButton("❌ Close", callback_data="close_sub")]
+            ])
+            
+            await message.reply(
+                f"**⚠️ Access Restricted!**\n\n"
+                f"To use this bot, please join our channel first:\n"
+                f"➠ @{UPDATE_CHANNEL if UPDATE_CHANNEL.startswith('@') else UPDATE_CHANNEL}\n\n"
+                "After joining, click 'Check Again' below",
+                reply_markup=keyboard,
+                disable_web_page_preview=True
+            )
+            return False
+        except Exception as e:
+            print(f"Force sub error: {e}")
+            return True
+            
+    return True
 
-async def cleanup_subscription_cache():
-    """Periodically clean old subscription data"""
+async def cleanup_old_messages(client):
     while True:
         try:
-            # Clear cache for users inactive for >7 days
-            threshold = datetime.now() - timedelta(days=7)
-            await users_col.update_many(
-                {"last_active": {"$lt": threshold}},
-                {"$unset": {"subscribed": ""}}
-            )
-            await asyncio.sleep(86400)  # Run daily
+            threshold = datetime.now() - timedelta(hours=6)
+            users = users_col.find({"last_force_sub_msg": {"$exists": True}})
+            
+            for user in users:
+                if user.get("last_sub_check", datetime.min) < threshold:
+                    try:
+                        await client.delete_messages(user["_id"], user["last_force_sub_msg"])
+                        await users_col.update_one(
+                            {"_id": user["_id"]},
+                            {"$unset": {"last_force_sub_msg": ""}}
+                        )
+                    except Exception:
+                        continue
+                    
         except Exception as e:
             print(f"Cleanup error: {e}")
-            await asyncio.sleep(3600)
+            
+        await asyncio.sleep(3600)
+
+@app.on_startup()
+async def startup(client):
+    asyncio.create_task(cleanup_old_messages(client))
 
 def extract_language(text):
-    languages = ["hindi", "telugu", "tamil", "malayalam", "kannada", "english", "bengali"]
+    languages = ["hindi", "telugu", "tamil", "malayalam", "kannada", "english"]
     for lang in languages:
         if lang in text.lower():
             return lang.capitalize()
     return "Unknown"
-
-async def is_admin(client, chat_id, user_id):
-    try:
-        member = await client.get_chat_member(chat_id, user_id)
-        return member.status in ("administrator", "creator")
-    except Exception:
-        return False
 
 async def verify_file_exists(client, doc):
     try:
@@ -140,46 +140,16 @@ async def verify_file_exists(client, doc):
     except Exception:
         return False
 
-async def send_files_to_user(client, chat_id, docs):
-    for doc in docs:
-        try:
-            msg = await client.get_messages(doc["chat_id"], doc["message_id"])
-            caption = f"<code>{msg.caption or doc.get('file_name', 'No Caption')}</code>"
-            
-            if msg.document:
-                await client.send_document(chat_id, msg.document.file_id, caption=caption, parse_mode=ParseMode.HTML)
-            elif msg.video:
-                await client.send_video(chat_id, msg.video.file_id, caption=caption, parse_mode=ParseMode.HTML)
-            
-            await asyncio.sleep(0.5)
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
-        except Exception:
-            continue
-
-async def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All", client=None):
+async def generate_pagination_buttons(results, bot_username, page, per_page, prefix, query="", user_id=None, selected_lang="All"):
     total_pages = (len(results) + per_page - 1) // per_page
     start = page * per_page
     end = start + per_page
     page_data = results[start:end]
 
-    if not page_data and results:
-        page = 0
-        start = 0
-        end = per_page
-        page_data = results[start:end]
-
     buttons = []
     for doc in page_data:
-        exists_in_db = files_col.find_one({"_id": doc["_id"]})
-        exists_in_channel = False
-        if exists_in_db and client is not None:
-            try:
-                await client.get_messages(doc["chat_id"], doc["message_id"])
-                exists_in_channel = True
-            except Exception:
-                exists_in_channel = False
-        if not (exists_in_db and exists_in_channel):
+        exists = await verify_file_exists(client, doc)
+        if not exists:
             continue
 
         row = [InlineKeyboardButton(
@@ -210,31 +180,11 @@ async def generate_pagination_buttons(results, bot_username, page, per_page, pre
 
 @app.on_message(filters.command("start") & filters.private)
 async def start_handler(client, message):
-    # Check subscription first
-    if not await force_subscription(client, message):
+    if not await force_sub_handler(client, message):
         return
-        
-    # Clear the force-sub keyboard if it exists
-    try:
-        await message.reply(
-            "Welcome!",
-            reply_markup=ReplyKeyboardRemove()
-        )
-    except Exception:
-        pass
-        
-    # Rest of your start handler...
-
-@app.on_message(filters.private & ~filters.command("start"))
-async def private_message_handler(client, message):
-    # Check subscription for all private messages
-    if not await force_subscription(client, message):
-        return
-        
-    # Rest of your message handling...
         
     loading = await message.reply("🍿")
-    await asyncio.sleep(2)
+    await asyncio.sleep(1)
     await loading.delete()
 
     image = random.choice(IMAGE_URLS)
@@ -255,89 +205,23 @@ async def private_message_handler(client, message):
         parse_mode=ParseMode.HTML
     )
 
-@app.on_message(filters.command("broadcast") & filters.user(BOT_OWNER))
-async def broadcast_message(client, message: Message):
-    if not await force_subscribe(client, message):
-        return
-        
-    if message.reply_to_message:
-        broadcast_text = message.reply_to_message.text or message.reply_to_message.caption
-        media = message.reply_to_message.document or message.reply_to_message.video or message.reply_to_message.photo
+@app.on_callback_query(filters.regex("^check_sub$"))
+async def check_sub_callback(client, query: CallbackQuery):
+    is_subscribed = await check_user_subscribed(client, query.from_user.id)
+    if is_subscribed:
+        await query.answer("Thanks for joining! ✅", show_alert=True)
+        await query.message.delete()
+        await start_handler(client, query.message)
     else:
-        args = message.text.split(None, 1)
-        if len(args) < 2:
-            return await message.reply("Usage:\n/broadcast your message or reply to a message to broadcast")
-        broadcast_text = args[1]
-        media = None
+        await query.answer("You haven't joined the channel yet.", show_alert=True)
 
-    sent_count = 0
-    fail_count = 0
+@app.on_callback_query(filters.regex("^close_sub$"))
+async def close_sub_callback(client, query: CallbackQuery):
+    await query.message.delete()
 
-    users = users_col.find({})
-    await message.reply(f"Broadcast started...\nTotal users: {users_col.count_documents({})}")
-    for user in users:
-        try:
-            if media:
-                if message.reply_to_message.document:
-                    await client.send_document(user["_id"], media.file_id, caption=broadcast_text)
-                elif message.reply_to_message.video:
-                    await client.send_video(user["_id"], media.file_id, caption=broadcast_text)
-                elif message.reply_to_message.photo:
-                    await client.send_photo(user["_id"], media.file_id, caption=broadcast_text)
-            else:
-                await client.send_message(user["_id"], broadcast_text)
-            sent_count += 1
-            await asyncio.sleep(0.1)
-        except Exception as e:
-            fail_count += 1
-            continue
-    await message.reply(f"Broadcast completed.\nSent: {sent_count}\nFailed: {fail_count}")
-
-@app.on_message(filters.command("grp_broadcast") & filters.private)
-async def group_broadcast(client, message: Message):
-    if message.from_user.id != BOT_OWNER:
-        return await message.reply("You are not authorized to use this command.")
-
-    if not await force_subscribe(client, message):
-        return
-
-    if message.reply_to_message:
-        broadcast_text = message.reply_to_message.text or message.reply_to_message.caption
-    else:
-        if len(message.command) < 2:
-            return await message.reply("Reply to a message or provide text after the command to broadcast.")
-        broadcast_text = message.text.split(None, 1)[1]
-
-    if not broadcast_text:
-        return await message.reply("No message to broadcast.")
-
-    groups = list(groups_col.find({}))
-    total = len(groups)
-    success = 0
-    failed = 0
-
-    status_msg = await message.reply(f"Broadcast started to {total} groups...")
-
-    for group in groups:
-        try:
-            await client.send_message(group["_id"], broadcast_text)
-            success += 1
-            await asyncio.sleep(0.2)
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
-            try:
-                await client.send_message(group["_id"], broadcast_text)
-                success += 1
-            except Exception:
-                failed += 1
-        except Exception:
-            failed += 1
-
-    await status_msg.edit_text(f"Broadcast finished!\n\nSuccess: {success}\nFailed: {failed}\nTotal: {total}")
-
-@app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about", "cleanup"]) & ~filters.bot)
-async def search_and_track(client, message: Message):
-    if message.chat.type == "private" and not await force_subscribe(client, message):
+@app.on_message(filters.text & ~filters.command(["start", "stats", "help", "about"]) & ~filters.bot)
+async def search_handler(client, message: Message):
+    if not await force_sub_handler(client, message):
         return
         
     if message.chat.type == "private":
@@ -353,9 +237,7 @@ async def search_and_track(client, message: Message):
             upsert=True
         )
 
-    user_query = message.text.strip()
-    query = normalize_text(user_query)
-
+    query = normalize_text(message.text.strip())
     results = list(files_col.find({
         "normalized_name": {"$regex": query, "$options": "i"}
     }))
@@ -372,11 +254,10 @@ async def search_and_track(client, message: Message):
         5, 
         "search", 
         query, 
-        message.from_user.id if message.chat.type == 'private' else None,
-        client=client
+        message.from_user.id if message.chat.type == 'private' else None
     )
     
-    reply_text = f"<blockquote>Hello {message.from_user.mention() if message.chat.type == 'private' else message.chat.title}👋,</blockquote>\n\nHere is what I found for your search: <code>{message.text.strip()}</code>"
+    reply_text = f"<blockquote>Hello {message.from_user.mention() if message.chat.type == 'private' else message.chat.title}👋,</blockquote>\n\nResults for: <code>{message.text.strip()}</code>"
     
     if message.chat.type == "private":
         await message.reply(reply_text, reply_markup=markup, parse_mode=ParseMode.HTML)
@@ -389,44 +270,37 @@ async def search_and_track(client, message: Message):
         )
 
 @app.on_callback_query()
-async def handle_callbacks(client, query: CallbackQuery):
-    if query.message.chat.type == "private" and not await force_subscribe(client, query.message):
-        return await query.answer("Please join the channel first.", show_alert=True)
-        
+async def callback_handler(client, query: CallbackQuery):
     data = query.data
+    
     try:
-        if data.startswith("search:") or data.startswith("movie:"):
-            parts = data.split(":", 3)
-            if len(parts) == 4:
-                prefix, page_str, query_text, lang = parts
-            else:
-                prefix, page_str, query_text = parts
-                lang = None
+        if data.startswith("search:"):
+            parts = data.split(":")
+            page = int(parts[1])
+            search_query = parts[2] if len(parts) > 2 else ""
+            lang = parts[3] if len(parts) > 3 else "All"
 
-            page = int(page_str)
-            normalized_query = normalize_text(query_text)
             query_filter = {
-                "normalized_name": {"$regex": normalized_query, "$options": "i"}
+                "normalized_name": {"$regex": normalize_text(search_query), "$options": "i"}
             }
-            if lang and lang != "All":
-                query_filter["language"] = lang.capitalize()
+            if lang != "All":
+                query_filter["language"] = lang
 
             results = list(files_col.find(query_filter))
+            valid_results = [doc for doc in results if await verify_file_exists(client, doc)]
 
-            filtered_results = []
-            for doc in results:
-                try:
-                    await client.get_messages(doc["chat_id"], doc["message_id"])
-                    filtered_results.append(doc)
-                except Exception:
-                    continue
-
-            if not filtered_results:
+            if not valid_results:
                 return await query.answer("No files found.", show_alert=True)
 
             markup = await generate_pagination_buttons(
-                filtered_results, (await client.get_me()).username, page, 5,
-                prefix, query_text, query.from_user.id, lang or "All", client=client
+                valid_results, 
+                (await client.get_me()).username, 
+                page, 
+                5, 
+                "search", 
+                search_query, 
+                query.from_user.id,
+                lang
             )
 
             try:
@@ -435,143 +309,19 @@ async def handle_callbacks(client, query: CallbackQuery):
                 pass
             return await query.answer()
 
-        elif data.startswith("deletefile:"):
-            if query.from_user.id != BOT_OWNER:
-                return await query.answer("You're not authorized!", show_alert=True)
-                
-            file_id = data.split(":")[1]
-            result = files_col.find_one({"_id": ObjectId(file_id)})
-            if result:
-                files_col.delete_one({"_id": ObjectId(file_id)})
-                await query.answer("✅ File deleted.")
-                return await query.message.delete()
-            else:
-                return await query.answer("❌ File not found.", show_alert=True)
-
         elif data == "help":
             keyboard = [
                 [InlineKeyboardButton("📊 Stats", callback_data="showstats"),
-                 InlineKeyboardButton("🗂 Database", callback_data="database")]
+                 InlineKeyboardButton("🗂 Database", callback_data="database")],
+                [InlineKeyboardButton("⟲ Back", callback_data="back")]
             ]
             
             if query.from_user.id == BOT_OWNER:
-                keyboard.append([InlineKeyboardButton("👑 Admin", callback_data="admin_panel")])
+                keyboard.insert(1, [InlineKeyboardButton("👑 Admin", callback_data="admin_panel")])
                 
-            keyboard.append([InlineKeyboardButton("⟲ Back", callback_data="back")])
-            
-            return await query.message.edit_text(
+            await query.message.edit_text(
                 "Welcome To My Store!\n\n<blockquote>{Note: Under Construction...🚧}</blockquote>",
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode=ParseMode.HTML
-            )
-
-        elif data == "admin_panel":
-            if query.from_user.id != BOT_OWNER:
-                return await query.answer("You're not authorized!", show_alert=True)
-                
-            await query.message.edit_text(
-                "👑 <b>Admin Panel</b> 👑\n\n"
-                "Available Commands:\n"
-                "/broadcast - Broadcast message to all users\n"
-                "/grp_broadcast - Broadcast to all groups\n"
-                "/cleanup - Cleanup database",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("⟲ Back", callback_data="help")]
-                ]),
-                parse_mode=ParseMode.HTML
-            )
-            return await query.answer()
-
-        elif data == "showstats":
-            users_count = users_col.count_documents({})
-            groups_count = groups_col.count_documents({})
-            files_count = files_col.count_documents({})
-            stats_text = (
-                f"<b>- - - - - - 📉 Bot Stats - - - - - -</b>\n"
-                f"<b>Total Users:</b> {users_count}\n"
-                f"<b>Total Groups:</b> {groups_count}\n"
-                f"<b>Total Files:</b> {files_count}\n"
-            )
-            return await query.message.edit_text(
-                stats_text,
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔄 Refresh", callback_data="showstats")],
-                    [InlineKeyboardButton("⟲ Back", callback_data="help")]
-                ]),
-                parse_mode=ParseMode.HTML
-            )
-
-        elif data == "database":
-            db_help_text = (
-                "<b>- - - - - - 🗂 How to Add Files - - - - - -</b>\n\n"
-                "1. ᴍᴀᴋᴇ ᴍᴇ ᴀɴ ᴀᴅᴍɪɴ ɪɴ ʏᴏᴜʀ ᴄʜᴀɴɴᴇʟ ɪꜰ ɪᴛ'ꜱ ᴘʀɪᴠᴀᴛᴇ.\n"
-                "2. ꜰᴏʀᴡᴀʀᴅ ᴛʜᴇ ʟᴀꜱᴛ ᴍᴇꜱꜱᴀɢᴇ ᴏꜰ ᴛʜᴇ ᴄʜᴀɴɴᴇʟ ᴡɪᴛʜ ϙᴜᴏᴛᴇꜱ.\n"
-                "I'ʟʟ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴀᴅᴅ ᴀʟʟ ꜰɪʟᴇꜱ ᴛᴏ ᴍʏ ᴅᴀᴛᴀʙᴀꜱᴇ!"
-            )
-            await query.message.edit_text(
-                db_help_text,
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data="help")]]),
-                parse_mode=ParseMode.HTML
-            )
-
-        elif data == "checksub":
-            if await check_subscription(client, query.from_user.id):
-                await query.answer("Thanks for joining!", show_alert=True)
-                await query.message.delete()
-                await start_handler(client, query.message)
-            else:
-                return await query.answer("Please join the updates channel to use this bot.", show_alert=True)
-
-        elif data.startswith("getfiles:"):
-            _, query_text, page_str, selected_lang = data.split(":", 3) if len(data.split(":")) > 3 else (*data.split(":"), "All")
-            query_filter = {
-                "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
-                **({"language": selected_lang.capitalize()} if selected_lang != "All" else {})
-            }
-            
-            docs = [
-                doc for doc in files_col.find(query_filter)[int(page_str)*5 : (int(page_str)+1)*5]
-                if await verify_file_exists(client, doc)
-            ]
-            
-            if not docs:
-                return await query.answer("No files found.", show_alert=True)
-                
-            await query.answer("Sending files...")
-            if query.message.chat.type != "private":
-                try:
-                    await client.send_message(query.from_user.id, f"📁 Files for '{query_text}':")
-                    await send_files_to_user(client, query.from_user.id, docs)
-                    await query.message.reply(
-                        f"📬 Check your PM {query.from_user.mention}!",
-                        reply_to_message_id=query.message.id
-                    )
-                except Exception:
-                    await query.message.reply(
-                        "⚠️ Please start a chat with me first!",
-                        reply_markup=InlineKeyboardMarkup([[
-                            InlineKeyboardButton("Start Chat", url=f"https://t.me/{(await client.get_me()).username}?start=start")
-                        ]]),
-                        reply_to_message_id=query.message.id
-                    )
-            else:
-                await send_files_to_user(client, query.message.chat.id, docs)
-
-        elif data == "about":
-            bot_username = (await client.get_me()).username
-            about_text = f"""- - - - - - 🍿About Me - - - - - -
-            
--ˋˏ✄- - Iᴍ Aɴ <a href='https://t.me/{bot_username}'>Aᴜᴛᴏ Fɪʟᴛᴇʀ Bᴏᴛ</a>
--ˋˏ✄- - Bᴜɪʟᴛ Wɪᴛʜ 💌 <a href='https://www.python.org/'>Pʏᴛʜᴏɴ</a> & <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ</a>
--ˋˏ✄- - Dᴀᴛᴀʙᴀsᴇ : <a href='https://www.mongodb.com/'>MᴏɴɢᴏDB</a>
--ˋˏ✄- - Bᴏᴛ Sᴇʀᴠᴇʀ : <a href='https://Render.com/'>Rᴇɴᴅᴇʀ</a>
-"""
-            return await query.message.edit_text(
-                about_text,
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("Lord", url="https://t.me/GandhiNote"),
-                     InlineKeyboardButton("⟲ Back", callback_data="back")]
-                ]),
                 parse_mode=ParseMode.HTML
             )
 
@@ -586,211 +336,63 @@ async def handle_callbacks(client, query: CallbackQuery):
                 [InlineKeyboardButton("Updates", url=UPDATE), InlineKeyboardButton("Support", url=SUPPORT_GROUP)]
             ])
             try:
-                return await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
+                await query.message.edit_media(InputMediaPhoto(image, caption=caption, parse_mode=ParseMode.HTML), reply_markup=keyboard)
             except Exception:
-                try:
-                    return await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-                except Exception:
-                    pass
+                await query.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
         elif data.startswith("langs:"):
             _, query_text, _ = data.split(":", 2)
             encoded_query = base64.urlsafe_b64encode(query_text.encode()).decode()
             buttons = [[InlineKeyboardButton(lang, callback_data=f"langselect:{encoded_query}:{lang}")]
                        for lang in PREDEFINED_LANGUAGES]
-            buttons.append([InlineKeyboardButton("</Bᴀᴄᴋ>", callback_data=f"search:0:{query_text}")])
-            markup = InlineKeyboardMarkup(buttons)
+            buttons.append([InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")])
             await query.message.edit_text(
-                f"Sᴇʟᴇᴄᴛ A Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
-                reply_markup=markup,
+                f"Sᴇʟᴇᴄᴛ Lᴀɴɢᴜᴀɢᴇ Fᴏʀ: <code>{query_text}</code>",
+                reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=ParseMode.HTML
             )
-            return await query.answer()
 
         elif data.startswith("langselect:"):
-            parts = data.split(":", 2)
-            if len(parts) < 3:
-                return await query.answer("Invalid language selection.", show_alert=True)
+            _, encoded_query, selected_lang = data.split(":", 2)
+            query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode()
+            selected_lang = selected_lang.capitalize()
 
-            _, encoded_query, selected_lang = parts
-            try:
-                query_text = base64.urlsafe_b64decode(encoded_query.encode()).decode()
-                selected_lang = selected_lang.capitalize()
+            results = list(files_col.find({
+                "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
+                "language": selected_lang
+            }))
+            valid_results = [doc for doc in results if await verify_file_exists(client, doc)]
 
-                results = list(files_col.find({
-                    "normalized_name": {"$regex": normalize_text(query_text), "$options": "i"},
-                    "language": selected_lang
-                }))
-
-                filtered_results = []
-                for doc in results:
-                    try:
-                        await client.get_messages(doc["chat_id"], doc["message_id"])
-                        filtered_results.append(doc)
-                    except Exception:
-                        continue
-
-                if not filtered_results:
-                    markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
-                    return await query.message.edit_text(
-                        f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
-                        parse_mode=ParseMode.HTML,
-                        reply_markup=markup
-                    )
-
-                markup = await generate_pagination_buttons(
-                    filtered_results, (await client.get_me()).username, 0, 5, "search", query_text, query.from_user.id, selected_lang, client=client
+            if not valid_results:
+                markup = InlineKeyboardMarkup([[InlineKeyboardButton("⟲ Back", callback_data=f"search:0:{query_text}")]])
+                return await query.message.edit_text(
+                    f"Nᴏ Fɪʟᴇs Fᴏᴜɴᴅ Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=markup
                 )
-                try:
-                    await query.message.edit_text(
-                        f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
-                        parse_mode=ParseMode.HTML,
-                        reply_markup=markup
-                    )
-                except MessageNotModified:
-                    pass
-                return await query.answer()
-            except Exception as e:
-                print("Language selection error:", e)
-                return await query.answer("Something went wrong.", show_alert=True)
 
-        else:
-            return await query.answer("Unknown action.", show_alert=True)
+            markup = await generate_pagination_buttons(
+                valid_results, 
+                (await client.get_me()).username, 
+                0, 
+                5, 
+                "search", 
+                query_text, 
+                query.from_user.id,
+                selected_lang
+            )
+            await query.message.edit_text(
+                f"Fɪʟᴇs Fᴏʀ <code>{query_text}</code> ɪɴ {selected_lang}:",
+                parse_mode=ParseMode.HTML,
+                reply_markup=markup
+            )
 
+        await query.answer()
     except Exception as e:
-        print(f"Callback data: {data}")
-        print(f"Error in callback: {e}")
+        print(f"Callback error: {e}")
         await query.answer("An error occurred.", show_alert=True)
 
-@app.on_message(filters.private & filters.forwarded)
-async def process_forwarded_message(client, message: Message):
-    if not await force_subscribe(client, message):
-        return
-        
-    if not message.forward_from_chat or not message.forward_from_message_id:
-        await message.reply_text("❌ Please forward the **last message** from a channel **with quotes**.")
-        return
-
-    chat_id = message.forward_from_chat.id
-    last_msg_id = message.forward_from_message_id
-    count = 0
-    live_message = await message.reply_text("🔍 Scanning files... **0** found")
-
-    current_msg_id = last_msg_id
-
-    while current_msg_id > 0:
-        try:
-            msg = await client.get_messages(chat_id, current_msg_id)
-            if not msg or not (msg.document or msg.video):
-                current_msg_id -= 1
-                continue
-
-            media = msg.document or msg.video
-            file_name = media.file_name or "Unknown"
-            file_size = media.file_size
-            file_id = media.file_id
-            caption = msg.caption or ""
-            combined_text = f"{file_name} {caption}".lower()
-            normalized_name = normalize_text(file_name)
-            language = extract_language(combined_text)
-            file_type = "document" if msg.document else "video"
-
-            existing = files_col.find_one({
-                "file_name": file_name,
-                "file_size": file_size
-            })
-            if existing:
-                current_msg_id -= 1
-                continue
-
-            try:
-                sent = await client.copy_message(DB_CHANNEL, chat_id, current_msg_id)
-            except FloodWait as e:
-                await asyncio.sleep(e.value)
-                continue
-
-            files_col.insert_one({
-                "file_name": file_name,
-                "normalized_name": normalized_name,
-                "language": language,
-                "file_type": file_type,
-                "chat_id": DB_CHANNEL,
-                "message_id": sent.id,
-                "file_id": sent.document.file_id if sent.document else sent.video.file_id,
-                "file_size": file_size
-            })
-
-            count += 1
-            if count % 5 == 0:
-                await live_message.edit_text(f"📂 Scanning files... **{count}** found")
-            
-            current_msg_id -= 1
-
-        except Exception as e:
-            print(f"Error at message {current_msg_id}: {e}")
-            current_msg_id -= 1
-            continue
-
-    await live_message.edit_text(f"✅ **Done!** {count} files added to the database.")
-    
-@app.on_message(filters.new_chat_members)
-async def welcome_group(client, message: Message):
-    for user in message.new_chat_members:
-        if user.id == (await client.get_me()).id:
-            existing_group = groups_col.find_one({"_id": message.chat.id})
-            if not existing_group:
-                groups_col.insert_one({
-                    "_id": message.chat.id,
-                    "title": message.chat.title,
-                    "username": message.chat.username,
-                    "added_by": message.from_user.id,
-                    "date": datetime.now()
-                })
-            
-            group_title = message.chat.title
-            group_link = f"https://t.me/c/{str(message.chat.id)[4:]}" if str(message.chat.id).startswith("-100") else "https://t.me/"
-            caption = (
-                f"TʜᴀɴᴋYᴏᴜ! Fᴏʀ Aᴅᴅɪɴɢ Mᴇʜ Tᴏ <a href=\"{group_link}\">{group_title}</a>\n\n"
-                f"Lᴇᴛ's Get Started..."
-            )
-            keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("Sᴜᴘᴘᴏʀᴛ", url=SUPPORT_GROUP), InlineKeyboardButton("Updates", url=UPDATE)]
-            ])
-            await message.reply_text(caption, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-
-@app.on_message(filters.channel & filters.chat(DB_CHANNEL) & (filters.document | filters.video))
-async def save_file(client, message: Message):
-    media = message.document or message.video
-    file_name = media.file_name or "Unknown"
-    file_size = media.file_size
-    file_id = media.file_id
-    caption = message.caption or ""
-    combined_text = f"{file_name} {caption}".lower()
-    normalized_name = normalize_text(file_name)
-    language = extract_language(combined_text)
-
-    existing = files_col.find_one({
-        "file_name": file_name,
-        "file_size": file_size
-    })
-    if existing:
-        print(f"Skipped duplicate: {file_name}")
-        return
-
-    files_col.insert_one({
-        "file_name": file_name,
-        "normalized_name": normalized_name,
-        "language": language,
-        "chat_id": message.chat.id,
-        "message_id": message.id,
-        "file_id": file_id,
-        "file_size": file_size
-    })
-    print(f"Stored file: {file_name} | Language: {language}")
-
 if __name__ == "__main__":
-    from multiprocessing import Process
-    
     flask_process = Process(target=run_flask)
     flask_process.start()
     
